@@ -1,0 +1,18 @@
+task: language_modeling
+arch: transformer_lm_wiki103_super
+
+# SuperTransformer configs
+decoder-embed-dim: 1152
+decoder-layers: 14
+decoder-attention-heads: 16
+decoder-ffn-embed-dim: 5120
+qkv-dim: 1152
+
+# SubTransformers search space
+decoder-embed-choice: [ 1152 ]
+
+decoder-ffn-embed-dim-choice: [ 5120, 4096, 3072 ]
+
+decoder-layer-num-choice: [ 14, 12, 10 ]
+
+decoder-self-attention-heads-choice: [ 16, 12, 8 ]

@@ -1,0 +1,48 @@
+task: language_modeling
+train-subtransformer: True
+
+# model
+arch: transformer_lm_wiki103_super
+data: ../data-bin/wikitext-103
+save-dir: checkpoints/wikitext-103/subtransformer
+max-relative-length: -1
+
+# training settings
+max-update: 286000
+max-lr: 1.0
+t-mult: 2
+lr-period-updates: 270000
+lr-scheduler: cosine
+lr-shrink: 0.75
+warmup-updates: 16000
+warmup-init-lr: 1e-07
+min-lr: 1e-09
+optimizer: nag
+lr: 0.0001
+clip-norm: 0.1
+criterion: adaptive_loss
+max-tokens: 2304
+update-freq: 4
+tokens-per-sample: 2304
+seed: 1
+sample-break-mode: none
+skip-invalid-size-inputs-valid-test: True
+ddp-backend: no_c10d
+log-interval: 100
+fp16: True
+
+# SuperTransformer configs
+
+# We train the SubTransformer inside the SuperTransformer, so need to specify a SuperTransformer
+# From algorithm side, we can train a totally standalone SubTransformer and it is unnecessary to specify a SuperTransformer
+# However, from implementation side, it is easier to do a Subtransformer training by always sampling the same desired SubTransformer from a specified SuperTransformer
+
+decoder-embed-dim: 1152
+
+decoder-ffn-embed-dim: 5120
+
+decoder-layers: 14
+
+decoder-attention-heads: 16
+
+qkv-dim: 1152

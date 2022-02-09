@@ -1,0 +1,83 @@
+# data augmentation
+augmentation: True
+augmentation-schema: cut_off
+augmentation-masking-schema: word
+augmentation-masking-probability: 0.05
+augmentation-replacing-schema: mask
+criterion: label_smoothed_cross_entropy_with_regularization
+
+# model
+arch: transformersuper_iwslt_de_en
+data: ../data/binary/iwslt14.tokenized.de-en
+source-lang: de
+target-lang: en
+share-all-embeddings: True
+share-decoder-input-output-embed: False
+encoder-normalize-before: True
+decoder-normalize-before: True
+max-relative-length: 8
+rank-list-size: 100
+max-tokens-valid: 10000
+
+# training settings
+seed: 1
+optimizer: adam
+adam-betas: (0.9, 0.98)
+max-tokens: 4096
+weight-decay: 0.0001
+dropout: 0.3
+relu-dropout: 0.1
+attention-dropout: 0.1
+
+fp16: True
+label-smoothing: 0.1
+clip-norm: 0.0
+reset-optimizer: False
+min-lr: 1e-09
+max-epoch: 30
+warmup-updates: 8000
+lr-scheduler: inverse_sqrt
+warmup-init-lr: 1e-7
+lr: 0.0015
+num-workers: 2
+
+distributed-world-size: 1
+
+# logging
+keep-last-epochs: 30
+save-interval: 1
+#log-interval: 100
+validate-interval: 1
+
+# SuperTransformer configs
+encoder-embed-dim: 640
+decoder-embed-dim: 640
+
+encoder-ffn-embed-dim: 2048
+decoder-ffn-embed-dim: 2048
+
+encoder-layers: 6
+decoder-layers: 6
+
+encoder-attention-heads: 8
+decoder-attention-heads: 8
+
+qkv-dim: 512
+
+# SubTransformers search space
+encoder-embed-choice: [640, 512]
+decoder-embed-choice: [640, 512]
+
+encoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
+decoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
+
+encoder-layer-num-choice: [6]
+decoder-layer-num-choice: [6, 5, 4, 3, 2, 1]
+
+encoder-self-attention-heads-choice: [8, 4, 2]
+decoder-self-attention-heads-choice: [8, 4, 2]
+decoder-ende-attention-heads-choice: [8, 4, 2]
+
+# for arbitrary encoder decoder attention. -1 means attending to last one encoder layer
+# 1 means last two encoder layers, 2 means last three encoder layers
+decoder-arbitrary-ende-attn-choice: [-1, 1, 2]

@@ -1,0 +1,34 @@
+task: language_modeling
+
+lat-dataset-path: ./latency_dataset/wiki103_cpu_latency.data
+arch-path: ./latency_dataset/wiki103_cpu_latency.arch
+lat-dataset-size: 2000
+cpu: True
+latcpu: True
+latiter: 10
+latsilent: True
+flops: False
+
+# below is the configs for the data point sampling space for the latency predictor
+
+# model
+arch: transformer_lm_wiki103_super
+data: ../data-bin/wikitext-103
+max-tokens: 3072
+context-window: 2560
+
+# SuperTransformer configs
+decoder-embed-dim: 1152
+decoder-layers: 14
+decoder-attention-heads: 16
+decoder-ffn-embed-dim: 5120
+qkv-dim: 1152
+
+# SubTransformers search space
+decoder-embed-choice: [ 1152 ]
+
+decoder-ffn-embed-dim-choice: [ 5120, 4096, 3072 ]
+
+decoder-layer-num-choice: [ 14, 12, 10]
+
+decoder-self-attention-heads-choice: [ 16, 12, 8 ]

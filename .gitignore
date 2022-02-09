@@ -1,0 +1,7 @@
+*.pyc
+*.pth
+/arun_log
+/checkpoints
+/data-bin
+*.data
+*.so

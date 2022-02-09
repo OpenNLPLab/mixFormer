@@ -1,0 +1,50 @@
+lat-dataset-path: ./latency_dataset/wmt.large.latency.1080ti.data
+arch-path: ./latency_dataset/wmt_large_1080ti.arch
+lat-dataset-size: 2000
+latgpu: True
+latiter: 20
+latsilent: True
+flops: True
+
+# below is the configs for the data point sampling space for the latency predictor
+
+# model
+arch: transformersuper_wmt_en_de
+share-all-embeddings: True
+max-tokens: 4096
+data: ../data/binary/wmt16_en_de
+
+# SuperTransformer configs
+encoder-embed-dim: 1024
+decoder-embed-dim: 1024
+
+encoder-ffn-embed-dim: 5120
+decoder-ffn-embed-dim: 5120
+
+encoder-layers: 6
+decoder-layers: 6
+
+encoder-attention-heads: 16
+decoder-attention-heads: 16
+
+qkv-dim: 1024
+
+# SubTransformers search space
+encoder-rpr-choice: [16, 12, 8]
+decoder-rpr-choice: [16, 12, 8]
+encoder-embed-choice: [ 1024, 768, 640 ]
+decoder-embed-choice: [ 1024, 768, 640 ]
+
+encoder-ffn-embed-dim-choice: [ 5120, 4096, 3072, 2048 ]
+decoder-ffn-embed-dim-choice: [ 5120, 4096, 3072, 2048 ]
+
+encoder-layer-num-choice: [ 6 ]
+decoder-layer-num-choice: [ 6, 5, 4, 3, 2, 1]
+
+encoder-self-attention-heads-choice: [ 16, 8, 4 ]
+decoder-self-attention-heads-choice: [ 16, 8, 4 ]
+decoder-ende-attention-heads-choice: [ 16, 8, 4 ]
+
+# for arbitrary encoder decoder attention. -1 means attending to last one encoder layer
+# 1 means last two encoder layers, 2 means last three encoder layers
+decoder-arbitrary-ende-attn-choice: [ -1, 1, 2]

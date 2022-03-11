@@ -46,7 +46,8 @@ def main(args, init_distributed=False):
     # Load valid dataset (we load training data below, based on the latest checkpoint)
     for valid_sub_split in args.valid_subset.split(','):
         task.load_dataset(valid_sub_split, combine=False, epoch=0)
-
+    if args.task == 'classification':
+        args.nb_classes = task.datasets[valid_sub_split].nb_classes
     # Build model and criterion
     model = task.build_model(args)
     criterion = task.build_criterion(args)
@@ -96,24 +97,31 @@ def main(args, init_distributed=False):
             raise NotImplementedError
     elif args.task == 'language_modeling':
         dummy_sentence_length = args.max_tokens
-
-    dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
-    dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
-
+    if args.task != 'classification':
+        dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
+        dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
+    elif args.task == 'classification':
+        dummy_src_tokens = torch.randn(1, 3, 224, 224)
+        dummy_prev = None
     # profile the overall FLOPs number
     if args.profile_flops:
         import torchprofile
         config_subtransformer = utils.get_subtransformer_config(args)
         model.set_sample_config(config_subtransformer)
         model.profile(mode=True)
-        macs = torchprofile.profile_macs(model, args=(
-            torch.tensor([dummy_src_tokens],
-                         dtype=torch.long), torch.tensor([30]),
-            torch.tensor([dummy_prev], dtype=torch.long)))
-        model.profile(mode=False)
+        if args.task == 'classification':
+            macs = torchprofile.profile_macs(model, args=(dummy_src_tokens))
+            model.profile(mode=False)
+            last_layer_macs = 0
+        else:
+            macs = torchprofile.profile_macs(model, args=(
+                torch.tensor([dummy_src_tokens],
+                             dtype=torch.long), torch.tensor([30]),
+                torch.tensor([dummy_prev], dtype=torch.long)))
+            model.profile(mode=False)
 
-        last_layer_macs = config_subtransformer['decoder']['decoder_embed_dim'] * dummy_sentence_length * len(
-            task.tgt_dict)
+            last_layer_macs = config_subtransformer['decoder']['decoder_embed_dim'] * dummy_sentence_length * len(
+                task.tgt_dict)
 
         print(f"| Total FLOPs: {macs * 2}")
         print(f"| Last layer FLOPs: {last_layer_macs * 2}")
@@ -126,7 +134,6 @@ def main(args, init_distributed=False):
     print(f"| Training on {args.distributed_world_size} GPUs")
     print(
         f"| Max tokens per GPU = {args.max_tokens} and max sentences per GPU = {args.max_sentences} \n")
-
     # Measure model latency, the program will exit after profiling latency
     if args.latcpu or args.latgpu:
         utils.measure_latency(args, model, dummy_src_tokens, dummy_prev)
@@ -156,6 +163,7 @@ def main(args, init_distributed=False):
 
     sampled_archs = []
     hash_tables = []
+
     while len(sampled_archs) < args.rank_list_size:
         sample = utils.sample_configs(
             utils.get_all_choices(args),
@@ -195,7 +203,11 @@ def main(args, init_distributed=False):
         train(args, trainer, task, epoch_itr)
 
         # apply early stopping if the ranking corr doesn't change for multiple rounds
-        is_ranking_stable, corr, prev_loss = get_rank_corr(corr, prev_loss)
+        if args.task != 'classification':
+            is_ranking_stable, corr, prev_loss = get_rank_corr(corr, prev_loss)
+        else:
+            is_ranking_stable = False
+            corr = 0
         if is_ranking_stable:
             ranking_counter += 1
         else:
@@ -243,10 +255,10 @@ def train(args, trainer, task, epoch_itr):
 
     extra_meters = collections.defaultdict(lambda: AverageMeter())
     valid_subsets = args.valid_subset.split(',')
+
     max_update = args.max_update or math.inf
 
     represent_configs = utils.get_represent_configs(args)
-    
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
 
         if args.train_subtransformer:
@@ -262,7 +274,10 @@ def train(args, trainer, task, epoch_itr):
                 configs = [utils.sample_configs_lm(utils.get_all_choices(args), reset_rand_seed=True,
                                                    rand_seed=trainer.get_num_updates(),
                                                    super_decoder_num_layer=args.decoder_layers)]
-                                                   
+            elif args.task == 'classification':
+                configs = [utils.sample_configs(utils.get_all_choices(args), reset_rand_seed=True,
+                                                rand_seed=trainer.get_num_updates(),
+                                                super_decoder_num_layer=args.decoder_layers)]
         log_output = trainer.train_step(samples, configs=configs)
         if log_output is None:
             continue
@@ -300,7 +315,6 @@ def train(args, trainer, task, epoch_itr):
 
             checkpoint_utils.save_checkpoint(
                 args, trainer, epoch_itr, valid_losses[0])
-
         if num_updates >= max_update or i == (args.max_batch - 1):
             break
 
@@ -374,7 +388,8 @@ def validate(args, trainer, task, epoch_itr, subsets, sampled_arch_name):
 
         stats[sampled_arch_name + '_loss'] = deepcopy(stats['loss'])
         stats[sampled_arch_name + '_nll_loss'] = deepcopy(stats['nll_loss'])
-
+        stats[sampled_arch_name + '_acc1'] = deepcopy(stats['valid_acc1'])
+        stats[sampled_arch_name + '_acc5'] = deepcopy(stats['valid_acc5'])
         for k, meter in extra_meters.items():
             stats[k] = meter.avg
 

@@ -2,7 +2,7 @@ train-subtransformer: True
 
 # model
 arch: transformersuper_iwslt_de_en
-data: ../data/binary/iwslt14.tokenized.de-en
+data: data/binary/iwslt14_de_en
 source-lang: de
 target-lang: en
 share-all-embeddings: True

@@ -14,6 +14,7 @@ from fairseq import options, tasks, utils
 from fairseq.data import LMContextWindowDataset
 from fairseq.sequence_scorer import SequenceScorer
 
+
 def get_flops(args, task, model, config):
     model.set_sample_config(config)
 
@@ -25,12 +26,25 @@ def get_flops(args, task, model, config):
             dummy_sentence_length = dummy_sentence_length_dict['wmt']
         else:
             raise NotImplementedError
+        dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
+        dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
     elif args.task == 'language_modeling':
         dummy_sentence_length = args.max_tokens
-
-    dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
-    dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
-
+        dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
+        dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
+    if args.task == 'classification':
+        dummy_src_tokens = torch.randn(1, 3, 224, 224)
+        model.profile(mode=True)
+        if args.latcpu:
+            macs = torchprofile.profile_macs(model, args=(
+                dummy_src_tokens))
+        elif args.latgpu:
+            macs = torchprofile.profile_macs(model, args=(
+                dummy_src_tokens.cuda()
+            ))
+        model.profile(mode=False)
+        flops = macs * 2
+        return flops
     model.profile(mode=True)
     if args.latcpu:
         macs = torchprofile.profile_macs(model, args=(
@@ -88,18 +102,33 @@ def main(args):
             raise NotImplementedError
     elif args.task == 'language_modeling':
         dummy_sentence_length = args.max_tokens
-
-    dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
-    dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
+    if args.task != 'classification':
+        dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
+        dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
 
     # for latency predictor: latency dataset generation
     # we store the sampled architectures to another file
     f_arch = open(args.arch_path, 'w')
     with open(args.lat_dataset_path, 'w') as fid:
-        src_tokens_test = torch.tensor([dummy_src_tokens], dtype=torch.long)
-        src_lengths_test = torch.tensor([dummy_sentence_length])
+        if args.task != 'classification':
+            src_tokens_test = torch.tensor([dummy_src_tokens], dtype=torch.long)
+            src_lengths_test = torch.tensor([dummy_sentence_length])
         if args.task == 'translation':
             prev_output_tokens_test_with_beam = torch.tensor([dummy_prev] * args.beam, dtype=torch.long)
+        if args.task == 'classification':
+            task = tasks.setup_task(args)
+            task.load_dataset('valid')
+            dataset = task.dataset('valid')
+            itr = task.get_batch_iterator(
+                dataset=dataset,
+                max_tokens=args.max_tokens,
+                max_sentences=args.max_sentences,
+                max_positions=model.max_positions(),
+            ).next_epoch_itr(shuffle=True)
+            for s in itr:
+                cls_inputs = deepcopy(s)
+                break
+            cls_inputs = utils.move_to_cuda(cls_inputs) if args.latgpu else cls_inputs
         if args.task == 'language_modeling':
             task = tasks.setup_task(args)
 
@@ -123,7 +152,7 @@ def main(args):
                 ignore_invalid_inputs=True,
                 num_workers=1,
             ).next_epoch_itr(shuffle=True)
-            
+
             for s in itr:
                 lm_inputs = deepcopy(s)
                 break
@@ -151,28 +180,31 @@ def main(args):
             feature_info = utils.get_feature_info()
         elif args.task == 'language_modeling':
             feature_info = utils.get_feature_info_lm()
+        elif args.task == 'classification':
+            feature_info = utils.get_feature_info_classification()
         fid.write(','.join(feature_info) + ',')
-        
+
         if args.task == 'translation':
             latency_info = ['latency_mean_encoder', 'latency_mean_decoder',
                             'latency_std_encoder', 'latency_std_decoder']
         elif args.task == 'language_modeling':
             latency_info = ['latency_mean_decoder', 'latency_std_decoder']
+        elif args.task == 'classification':
+            latency_info = ['latency_mean_encoder', 'latency_std_encoder']
         fid.write(','.join(latency_info))
         if args.flops:
             fid.write(',flops')
         fid.write('\n')
 
         hash_table = []
-
         for i in tqdm(range(args.lat_dataset_size)):
-            
+
             model_size = 0
 
             while True:
                 if args.task == 'translation':
                     config_sam = utils.sample_configs(utils.get_all_choices(args), reset_rand_seed=False,
-                                                    super_decoder_num_layer=args.decoder_layers)
+                                                      super_decoder_num_layer=args.decoder_layers)
                     # store the architecture
                     f_arch.write(str(config_sam) + '\n')
                     features = utils.get_config_features(config_sam)
@@ -186,7 +218,7 @@ def main(args):
 
                 elif args.task == 'language_modeling':
                     config_sam = utils.sample_configs_lm(utils.get_all_choices(args), reset_rand_seed=False,
-                                                        super_decoder_num_layer=args.decoder_layers)
+                                                         super_decoder_num_layer=args.decoder_layers)
                     # store the architecture
                     f_arch.write(str(config_sam) + '\n')
                     features = utils.get_config_features(config_sam)
@@ -197,15 +229,57 @@ def main(args):
                     if config_sam not in hash_table and model_size > 235000000 and model_size < 265000000:
                         hash_table.append(hash_table)
                         break
-            
+                elif args.task == 'classification':
+                    config_sam = utils.sample_configs_classification(utils.get_all_choices(args), reset_rand_seed=False,
+                                                                     super_decoder_num_layer=args.decoder_layers)
+                    f_arch.write(str(config_sam) + '\n')
+                    features = utils.get_config_features(config_sam)
+                    fid.write(','.join(map(str, features)) + ',')
+                    if config_sam not in hash_table:
+                        hash_table.append(hash_table)
+                        model.set_sample_config(config_sam)
+                        model_size = model.get_sampled_params_numel(config_sam)
+                        break
             print('Sample:', config_sam)
             print('#Parameters:', model_size)
 
             flops = 0
+
             if args.flops:
                 flops = get_flops(args, task, model, config_sam)
 
             # dry runs
+            if args.task == 'classification':
+                for _ in range(5):
+                    encoder_out = model.forward(**cls_inputs['net_input'])
+
+                encoder_latencies = []
+                # print('Measuring encoder for dataset generation...')
+                for _ in (range(args.latiter)):
+                    if args.latgpu:
+                        start.record()
+                    elif args.latcpu:
+                        start = time.time()
+
+                    model.forward(**cls_inputs['net_input'])
+
+                    if args.latgpu:
+                        end.record()
+                        torch.cuda.synchronize()
+                        encoder_latencies.append(start.elapsed_time(end))
+                        if not args.latsilent:
+                            print(
+                                'Encoder one run on GPU (for dataset generation): ', start.elapsed_time(end))
+                encoder_latencies.sort()
+                encoder_latencies = encoder_latencies[int(
+                    args.latiter * 0.1): -max(1, int(args.latiter * 0.1))]
+                lats = [np.mean(encoder_latencies), np.std(encoder_latencies)]
+                fid.write(','.join(map(str, lats)))
+                if args.flops:
+                    fid.write(',' + str(flops))
+                fid.write('\n')
+                print(features, lats)
+                continue
             if args.task == 'translation':
                 for _ in range(5):
                     encoder_out_test = model.encoder(
@@ -220,7 +294,7 @@ def main(args):
                         start = time.time()
 
                     model.encoder(src_tokens=src_tokens_test,
-                                src_lengths=src_lengths_test)
+                                  src_lengths=src_lengths_test)
 
                     if args.latgpu:
                         end.record()
@@ -255,7 +329,7 @@ def main(args):
                 # dry runs
                 for _ in range(5):
                     model.decoder(prev_output_tokens=prev_output_tokens_test_with_beam,
-                                encoder_out=encoder_out_test_with_beam)
+                                  encoder_out=encoder_out_test_with_beam)
 
             # decoder is more complicated because we need to deal with incremental states and auto regressive things
             if args.task == 'translation':
@@ -266,7 +340,7 @@ def main(args):
                     decoder_iterations = decoder_iterations_dict['wmt']
 
             decoder_latencies = []
-            
+
             for _ in (range(args.latiter)):
 
                 if args.latgpu:
@@ -278,7 +352,7 @@ def main(args):
                     incre_states = {}
                     for k_regressive in range(decoder_iterations):
                         model.decoder(prev_output_tokens=prev_output_tokens_test_with_beam[:, :k_regressive + 1],
-                                    encoder_out=encoder_out_test_with_beam, incremental_state=incre_states)
+                                      encoder_out=encoder_out_test_with_beam, incremental_state=incre_states)
                 elif args.task == 'language_modeling':
                     decoder_out = model.forward(**lm_inputs['net_input'])
 
@@ -303,7 +377,8 @@ def main(args):
                 args.latiter * 0.1): -max(1, int(args.latiter * 0.1))]
 
             if args.task == 'translation':
-                lats = [np.mean(encoder_latencies), np.mean(decoder_latencies), np.std(encoder_latencies), np.std(decoder_latencies)]
+                lats = [np.mean(encoder_latencies), np.mean(decoder_latencies), np.std(encoder_latencies),
+                        np.std(decoder_latencies)]
             elif args.task == 'language_modeling':
                 lats = [np.mean(decoder_latencies), np.std(decoder_latencies)]
             fid.write(','.join(map(str, lats)))

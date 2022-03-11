@@ -43,7 +43,8 @@ def main(args, init_distributed=False):
     # Load valid dataset (we load training data below, based on the latest checkpoint)
     for valid_sub_split in args.valid_subset.split(','):
         task.load_dataset(valid_sub_split, combine=False, epoch=0)
-
+    if args.task == 'classification':
+        args.nb_classes = task.datasets[valid_sub_split].nb_classes
     # Build model and criterion
     model = task.build_model(args)
     criterion = task.build_criterion(args)
@@ -66,6 +67,8 @@ def main(args, init_distributed=False):
             print(f"| Embedding layer size: {embed_size} \n")
         elif args.task == 'language_modeling':
             print(f"| Total parameters: {model_size} \n")
+        elif args.task == 'classification':
+            print(f"| SubTransformer size (without embedding weights): {model_size} \n")
 
     else:
         model_s = 0
@@ -90,8 +93,12 @@ def main(args, init_distributed=False):
     elif args.task == 'language_modeling':
         dummy_sentence_length = args.max_tokens
 
-    dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
-    dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
+    if args.task != 'classification':
+        dummy_src_tokens = [2] + [7] * (dummy_sentence_length - 1)
+        dummy_prev = [7] * (dummy_sentence_length - 1) + [2]
+    elif args.task == 'classification':
+        dummy_src_tokens = torch.randn(1, 3, 224, 224)
+        dummy_prev = None
 
     # profile the overall FLOPs number
     if args.profile_flops:
@@ -99,10 +106,20 @@ def main(args, init_distributed=False):
         config_subtransformer = utils.get_subtransformer_config(args)
         model.set_sample_config(config_subtransformer)
         model.profile(mode=True)
-        macs = torchprofile.profile_macs(model, args=(torch.tensor([dummy_src_tokens], dtype=torch.long), torch.tensor([30]), torch.tensor([dummy_prev], dtype=torch.long)))
-        model.profile(mode=False)
 
-        last_layer_macs = config_subtransformer['decoder']['decoder_embed_dim'] * dummy_sentence_length * len(task.tgt_dict)
+        if args.task == 'classification':
+            macs = torchprofile.profile_macs(model, args=(dummy_src_tokens))
+            model.profile(mode=False)
+            last_layer_macs = 0
+        else:
+            macs = torchprofile.profile_macs(model, args=(
+                torch.tensor([dummy_src_tokens],
+                             dtype=torch.long), torch.tensor([30]),
+                torch.tensor([dummy_prev], dtype=torch.long)))
+            model.profile(mode=False)
+
+            last_layer_macs = config_subtransformer['decoder']['decoder_embed_dim'] * dummy_sentence_length * len(
+                task.tgt_dict)
 
         print(f"| Total FLOPs: {macs * 2}")
         print(f"| Last layer FLOPs: {last_layer_macs * 2}")
@@ -195,7 +212,6 @@ def train(args, trainer, task, epoch_itr):
             # training SuperTransformer by randomly sampling SubTransformers
             configs = [utils.sample_configs(utils.get_all_choices(args), reset_rand_seed=True, rand_seed=trainer.get_num_updates(),
                                             super_decoder_num_layer=args.decoder_layers)]
-
         log_output = trainer.train_step(samples, configs=configs)
         if log_output is None:
             continue
@@ -280,7 +296,7 @@ def validate(args, trainer, task, epoch_itr, subsets, sampled_arch_name):
         progress = get_itr()
 
         # reset validation loss meters
-        for k in ['valid_loss', 'valid_nll_loss']:
+        for k in ['valid_loss', 'valid_nll_loss', 'valid_acc1', 'valid_acc5']:
             meter = trainer.get_meter(k)
             if meter is not None:
                 meter.reset()
@@ -293,7 +309,6 @@ def validate(args, trainer, task, epoch_itr, subsets, sampled_arch_name):
                 if k in ['loss', 'nll_loss', 'ntokens', 'nsentences', 'sample_size']:
                     continue
                 extra_meters[k].update(v)
-
         # log validation stats
         stats = utils.get_valid_stats(trainer, args)
         for k, meter in extra_meters.items():
@@ -356,10 +371,8 @@ def cli_main():
 
     if args.pdb:
         pdb.set_trace()
-
     if args.distributed_init_method is None:
         distributed_utils.infer_init_method(args)
-
     if args.distributed_init_method is not None:
         # distributed training
         if torch.cuda.device_count() > 1 and not args.distributed_no_spawn:

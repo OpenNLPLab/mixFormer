@@ -452,3 +452,11 @@ class FairseqEncoderModel(BaseFairseqModel):
     def max_positions(self):
         """Maximum length supported by the model."""
         return self.encoder.max_positions()
+
+class SuperFairseqEncoderModel(FairseqEncoderModel):
+
+    def __init__(self, encoder):
+        super().__init__(encoder)
+
+    def set_sample_config(self, config):
+        self.encoder.set_sample_config(config)

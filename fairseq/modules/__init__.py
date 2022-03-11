@@ -18,7 +18,7 @@ from .transformer_sentence_encoder import TransformerSentenceEncoder
 from .unfold import unfold1d
 from .transformer_layer import TransformerDecoderLayer, TransformerEncoderLayer
 from .relative_multihead_attention import RelativeMultiheadAttention
-
+from .relative_multihead_attention_super import RelativeMultiheadAttentionSuper
 from .embedding_super import EmbeddingSuper
 from .linear_super import LinearSuper, Linear
 from .layer_norm import LayerNormSuper
@@ -35,6 +35,7 @@ __all__ = [
     'MultiheadAttention',
     'MultiheadAttentionSuper',
     'RelativeMultiheadAttention',
+    'RelativeMultiheadAttentionSuper'
     'PositionalEmbedding',
     'SinusoidalPositionalEmbedding',
     'TransformerSentenceEncoderLayer',

@@ -380,7 +380,8 @@ def has_parameters(module):
 def sample_configs(choices, reset_rand_seed, rand_seed=0, super_decoder_num_layer=6):
     if 'encoder' not in choices and 'decoder' in choices:
         return sample_configs_lm(choices, reset_rand_seed, rand_seed, super_decoder_num_layer)
-
+    if 'encoder' in choices and 'decoder' not in choices:
+        return sample_configs_classification(choices, reset_rand_seed, rand_seed, super_decoder_num_layer)
     if reset_rand_seed:
         random.seed(rand_seed)
 
@@ -425,6 +426,32 @@ def sample_configs(choices, reset_rand_seed, rand_seed=0, super_decoder_num_laye
 
     return config
 
+def sample_configs_classification(choices, reset_rand_seed, rand_seed=0, super_decoder_num_layer=6):
+
+    if reset_rand_seed:
+        random.seed(rand_seed)
+
+    config = {
+        'encoder': {}
+    }
+
+    direct_select = ['embed_dim',
+                    'layer_num']
+    for v in direct_select:
+        for part in ['encoder']:
+            config[part][part+'_'+v] = random.choice(choices[part][part+'_'+v])
+
+    # encoder
+    encoder_ffn_embed_dim = []
+    encoder_self_attention_heads = []
+    for _ in range(config['encoder']['encoder_layer_num']):
+        encoder_ffn_embed_dim.append(random.choice(choices['encoder']['encoder_ffn_embed_dim']))
+        encoder_self_attention_heads.append(random.choice(choices['encoder']['encoder_self_attention_heads']))
+
+    config['encoder']['encoder_ffn_embed_dim'] = encoder_ffn_embed_dim
+    config['encoder']['encoder_self_attention_heads'] = encoder_self_attention_heads
+
+    return config
 
 def sample_configs_lm(choices, reset_rand_seed, rand_seed=0, super_decoder_num_layer=6):
     if reset_rand_seed:
@@ -480,6 +507,15 @@ def get_subtransformer_config(args):
                 'decoder_self_attention_heads': args.decoder_self_attention_heads_all_subtransformer
             }
         }
+    elif args.task == 'classification':
+        config = {
+            'encoder': {
+                'encoder_embed_dim': args.encoder_embed_dim_subtransformer,
+                'encoder_layer_num': args.encoder_layer_num_subtransformer,
+                'encoder_ffn_embed_dim': args.encoder_ffn_embed_dim_all_subtransformer,
+                'encoder_self_attention_heads': args.encoder_self_attention_heads_all_subtransformer,
+            }
+        }
 
     return config
 
@@ -513,6 +549,15 @@ def get_all_choices(args):
                 'decoder_self_attention_heads': args.decoder_self_attention_heads_choice,
             }
         }
+    elif args.task == 'classification':
+        all_choices = {
+            'encoder': {
+                'encoder_embed_dim': args.encoder_embed_choice,
+                'encoder_layer_num': args.encoder_layer_num_choice,
+                'encoder_ffn_embed_dim': args.encoder_ffn_embed_dim_choice,
+                'encoder_self_attention_heads': args.encoder_self_attention_heads_choice,
+            }
+        }
     else:
         raise NotImplementedError
 
@@ -520,6 +565,9 @@ def get_all_choices(args):
 
 def get_feature_info():
     return ['encoder_embed_dim', 'encoder_layer_num', 'encoder_ffn_embed_dim_avg', 'encoder_self_attention_heads_avg', 'decoder_embed_dim', 'decoder_layer_num', 'decoder_ffn_embed_dim_avg', 'decoder_self_attention_heads_avg', 'decoder_ende_attention_heads_avg', 'decoder_arbitrary_ende_attn_avg']
+
+def get_feature_info_classification():
+    return ['encoder_embed_dim', 'encoder_layer_num', 'encoder_ffn_embed_dim_avg', 'encoder_self_attention_heads_avg']
 
 def get_config_features(config):
 
@@ -537,19 +585,19 @@ def get_config_features(config):
         encoder_self_attention_heads_mean = np.mean(config['encoder']['encoder_self_attention_heads'][:encoder_layer_num])
         features.append(encoder_self_attention_heads_mean)
 
+    if 'decoder' in config:
+        features.append(config['decoder']['decoder_embed_dim'])
 
-    features.append(config['decoder']['decoder_embed_dim'])
+        decoder_layer_num = config['decoder']['decoder_layer_num']
+        features.append(decoder_layer_num)
 
-    decoder_layer_num = config['decoder']['decoder_layer_num']
-    features.append(decoder_layer_num)
+        decoder_ffn_embed_dim_mean = np.mean(config['decoder']['decoder_ffn_embed_dim'][:decoder_layer_num])
+        features.append(decoder_ffn_embed_dim_mean)
 
-    decoder_ffn_embed_dim_mean = np.mean(config['decoder']['decoder_ffn_embed_dim'][:decoder_layer_num])
-    features.append(decoder_ffn_embed_dim_mean)
+        decoder_self_attention_heads_mean = np.mean(config['decoder']['decoder_self_attention_heads'][:decoder_layer_num])
+        features.append(decoder_self_attention_heads_mean)
 
-    decoder_self_attention_heads_mean = np.mean(config['decoder']['decoder_self_attention_heads'][:decoder_layer_num])
-    features.append(decoder_self_attention_heads_mean)
-
-    if 'encoder' in config:
+    if 'encoder' in config and 'decoder' in config:
         decoder_ende_attention_heads_mean = np.mean(config['decoder']['decoder_ende_attention_heads'][:decoder_layer_num])
         features.append(decoder_ende_attention_heads_mean)
 
@@ -610,6 +658,27 @@ def get_represent_configs(args):
                 'decoder_arbitrary_ende_attn': [1] * args.decoder_layers
             }
         }
+    elif args.task == 'classification':
+        largest_arbitrary1 = {
+            'encoder': {
+                'encoder_embed_dim': max(args.encoder_embed_choice),
+                'encoder_layer_num': max(args.encoder_layer_num_choice),
+                'encoder_ffn_embed_dim': [max(args.encoder_ffn_embed_dim_choice)] * args.encoder_layers,
+                'encoder_self_attention_heads': [max(args.encoder_self_attention_heads_choice)] * args.encoder_layers,
+
+            },
+        }
+
+        # smallest Subtransformer
+        smallest_arbitrary1 = {
+            'encoder': {
+                'encoder_embed_dim': min(args.encoder_embed_choice),
+                'encoder_layer_num': min(args.encoder_layer_num_choice),
+                'encoder_ffn_embed_dim': [min(args.encoder_ffn_embed_dim_choice)] * args.encoder_layers,
+                'encoder_self_attention_heads': [min(args.encoder_self_attention_heads_choice)] * args.encoder_layers,
+
+            },
+        }
     else:
         # largest Subtransformer
         largest_arbitrary1 = {
@@ -639,8 +708,54 @@ def get_represent_configs(args):
         return {'largest_arbitrary1': largest_arbitrary1, 'smallest_arbitrary1': smallest_arbitrary1}
 
 
+def measure_latency_cls(args, model, dummy_src_tokens):
+    assert not (args.latcpu and args.latgpu)
+    model_test = copy.copy(model)
+    model_test.set_sample_config(get_subtransformer_config(args))
+    src_tokens_test = dummy_src_tokens
+    if args.latcpu:
+        model_test.cpu()
+        print('| Measuring model latency on CPU...')
+    elif args.latgpu:
+        # model_test.cuda()
+        src_tokens_test = src_tokens_test.cuda()
+        src_tokens_test.get_device()
+        print('| Measuring model latency on GPU...')
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        for _ in range(5):
+            encoder_out_test = model_test.forward(src_tokens=src_tokens_test)
+        encoder_latencies = []
+        print('| Measuring encoder...')
+        for _ in tqdm(range(args.latiter)):
+            if args.latgpu:
+                start.record()
+            elif args.latcpu:
+                start = time.time()
+
+            model_test.forward(src_tokens=src_tokens_test)
+
+            if args.latgpu:
+                end.record()
+                torch.cuda.synchronize()
+                encoder_latencies.append(start.elapsed_time(end))
+                if not args.latsilent:
+                    print('| Encoder one run on GPU: ', start.elapsed_time(end))
+
+            elif args.latcpu:
+                end = time.time()
+                encoder_latencies.append((end - start) * 1000)
+                if not args.latsilent:
+                    print('| Encoder one run on CPU: ', (end - start) * 1000)
+        print(f'| Encoder latencies: {encoder_latencies}')
+        encoder_latencies.sort()
+        encoder_latencies = encoder_latencies[int(args.latiter * 0.1): -int(args.latiter * 0.1)]
+        print(f'| Encoder latency: Mean: {np.mean(encoder_latencies)} ms; \t Std: {np.std(encoder_latencies)} ms')
+
 def measure_latency(args, model, dummy_src_tokens, dummy_prev):
     # latency measurement
+    if args.task == 'classification':
+        return measure_latency_cls(args, model, dummy_src_tokens)
     assert not (args.latcpu and args.latgpu)
 
     model_test = copy.copy(model)
@@ -791,6 +906,8 @@ def get_valid_stats(trainer, args, extra_meters=None):
     from fairseq import checkpoint_utils
     stats = collections.OrderedDict()
     stats['loss'] = trainer.get_meter('valid_loss')
+    stats['valid_acc1'] = trainer.get_meter('valid_acc1')
+    stats['valid_acc5'] = trainer.get_meter('valid_acc5')
     if trainer.get_meter('valid_nll_loss').count > 0:
         nll_loss = trainer.get_meter('valid_nll_loss')
         stats['nll_loss'] = nll_loss

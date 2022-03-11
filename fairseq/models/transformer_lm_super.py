@@ -785,9 +785,9 @@ def transformer_lm_baevski_wiki103(args):
     args.adaptive_input = getattr(args, 'adaptive_input', True)
     args.tie_adaptive_weights = getattr(args, 'tie_adaptive_weights', True)
     args.adaptive_input_cutoff = getattr(
-        args, 'adaptive_input_cutoff', '20000,50000')
+        args, 'adaptive_input_cutoff', '20000,60000')
     args.adaptive_softmax_cutoff = getattr(
-        args, 'adaptive_softmax_cutoff', '20000,50000')
+        args, 'adaptive_softmax_cutoff', '20000,60000')
     args.adaptive_softmax_dropout = getattr(
         args, 'adaptive_softmax_dropout', 0.2)
     args.attention_dropout = getattr(args, 'attention_dropout', 0.1)

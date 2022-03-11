@@ -28,7 +28,7 @@ def cli_main():
     parser.add_argument('--mutation-size', type=int, default=50)
     parser.add_argument('--crossover-size', type=int, default=50)
     parser.add_argument('--mutation-prob', type=float, default=0.3)
-
+    parser.add_argument('--reverse', action='store_true', default=False)
     parser.add_argument('--loss-feature-list', type=int,
                         nargs='+', help='selected feature indices')
     parser.add_argument('--latency-feature-list', type=int,

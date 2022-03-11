@@ -1,54 +1,53 @@
-lat-dataset-path: ./latency_dataset/iwslt_large_1080ti.data
-arch-path: ./latency_dataset/iwslt_large_1080ti.arch
+lat-dataset-path: ./latency_dataset/cifar_large_gpu.data
+arch-path: ./latency_dataset/cifar_large_gpu.arch
 lat-dataset-size: 1000
+max-sentences: 1
 latgpu: True
 latiter: 20
 latsilent: True
 flops: True
-
+task: classification
 # below is the configs for the data point sampling space for the latency predictor
 
 # model
-arch: transformersuper_iwslt_de_en
-data: data/binary/iwslt14_de_en
-source-lang: de
-target-lang: en
-share-all-embeddings: True
-share-decoder-input-output-embed: False
+arch: transformersuper_cifar10_small
+data: data
+#share-all-embeddings: True
+#share-decoder-input-output-embed: False
 encoder-normalize-before: True
-decoder-normalize-before: True
+#decoder-normalize-before: True
 
 # SuperTransformer configs
 encoder-embed-dim: 640
-decoder-embed-dim: 640
+#decoder-embed-dim: 640
 
 encoder-ffn-embed-dim: 2048
-decoder-ffn-embed-dim: 2048
+#decoder-ffn-embed-dim: 2048
 
 encoder-layers: 6
-decoder-layers: 6
+decoder-layers: 0
 
 encoder-attention-heads: 8
-decoder-attention-heads: 8
+#decoder-attention-heads: 8
 
 qkv-dim: 512
 
 # SubTransformers search space
 encoder-rpr-choice: [16, 12, 8]
-decoder-rpr-choice: [16, 12, 8]
+#decoder-rpr-choice: [16, 12, 8]
 encoder-embed-choice: [640, 512]
-decoder-embed-choice: [640, 512]
+#decoder-embed-choice: [640, 512]
 
 encoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
-decoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
+#decoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
 
 encoder-layer-num-choice: [6]
-decoder-layer-num-choice: [6, 5, 4, 3, 2, 1]
+#decoder-layer-num-choice: [6, 5, 4, 3, 2, 1]
 
 encoder-self-attention-heads-choice: [8, 4, 2]
-decoder-self-attention-heads-choice: [8, 4, 2]
-decoder-ende-attention-heads-choice: [8, 4, 2]
+#decoder-self-attention-heads-choice: [8, 4, 2]
+#decoder-ende-attention-heads-choice: [8, 4, 2]
 
 # for arbitrary encoder decoder attention. -1 means attending to last one encoder layer
 # 1 means last two encoder layers, 2 means last three encoder layers
-decoder-arbitrary-ende-attn-choice: [-1, 1, 2]
+#decoder-arbitrary-ende-attn-choice: [-1, 1, 2]

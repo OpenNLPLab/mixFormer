@@ -15,6 +15,7 @@ from .fairseq_model import (
     FairseqEncoderModel,
     FairseqEncoderDecoderModel,
     SuperFairseqEncoderDecoderModel,
+    SuperFairseqEncoderModel,
     FairseqLanguageModel,
     SuperFairseqLanguageModel,
     FairseqModel,

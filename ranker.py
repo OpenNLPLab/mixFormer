@@ -11,7 +11,7 @@ from scipy.stats import kendalltau, pearsonr
 random.seed(233)
 np.random.seed(233)
 
-from fairseq.utils import get_config_features, get_feature_info, get_feature_info_lm
+from fairseq.utils import get_config_features, get_feature_info, get_feature_info_lm, get_feature_info_classification
 
 class PerformanceRanker(object):
     def __init__(self, dataset_path='', feature_list=None):
@@ -134,6 +134,8 @@ class PerformanceRanker(object):
             feature_names = get_feature_info()
         elif self.task == 'language_modeling':
             feature_names = get_feature_info_lm()
+        elif self.task == 'classification':
+            feature_names = get_feature_info_classification()
         keep_list = []
         for f in corr_list[:feature_num]:
             if f[0] not in keep_list:
@@ -173,6 +175,8 @@ class PerformanceRanker(object):
             feature_names = get_feature_info()
         elif self.task == 'language_modeling':
             feature_names = get_feature_info_lm()
+        elif self.task == 'classification':
+            feature_names = get_feature_info_classification()
         if isinstance(keep_list[0], int):
             keep_list = [feature_names[d] for d in keep_list]
 
@@ -261,11 +265,18 @@ class PerformanceRanker(object):
         # read the dataset
         with open(self.dataset_path, 'r') as fid:
             title = fid.readline()
-            self.task = 'translation' if 'encoder' in title else 'language_modeling'
+            if 'encoder' in title and 'decoder' in title:
+                self.task = 'translation'
+            elif 'encoder' in title and 'decoder' not in title:
+                self.task = 'classification'
+            else:
+                self.task = 'language_modeling'
 
             if self.task == 'translation':
                 self.feature_names = title.split(',')[:10]
-            else:
+            elif self.task == 'language_modeling':
+                self.feature_names = title.split(',')[:4]
+            elif self.task == 'classification':
                 self.feature_names = title.split(',')[:4]
             is_latency_data = 'latency' in title
 

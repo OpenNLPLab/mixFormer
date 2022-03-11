@@ -6,32 +6,32 @@
 import math
 from timm.utils import accuracy, ModelEma
 from fairseq import utils
-
+import torch
 from . import FairseqCriterion, register_criterion
 
-
 def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=True):
-    if target.dim() == lprobs.dim() - 1:
-        target = target.unsqueeze(-1)
-    nll_loss = -lprobs.gather(dim=-1, index=target)
-    smooth_loss = -lprobs.sum(dim=-1, keepdim=True)
-    if ignore_index is not None:
-        non_pad_mask = target.ne(ignore_index)
-        nll_loss = nll_loss[non_pad_mask]
-        smooth_loss = smooth_loss[non_pad_mask]
-    else:
-        nll_loss = nll_loss.squeeze(-1)
-        smooth_loss = smooth_loss.squeeze(-1)
-    if reduce:
-        nll_loss = nll_loss.sum()
-        smooth_loss = smooth_loss.sum()
-    eps_i = epsilon / lprobs.size(-1)
-    loss = (1. - epsilon) * nll_loss + eps_i * smooth_loss
-    return loss, nll_loss
+    loss = torch.sum(-target * lprobs, dim=-1).sum()
+    # if target.dim() == lprobs.dim() - 1:
+    #     target = target.unsqueeze(-1)
+    # nll_loss = -lprobs.gather(dim=-1, index=target)
+    # smooth_loss = -lprobs.sum(dim=-1, keepdim=True)
+    # if ignore_index is not None:
+    #     non_pad_mask = target.ne(ignore_index)
+    #     nll_loss = nll_loss[non_pad_mask]
+    #     smooth_loss = smooth_loss[non_pad_mask]
+    # else:
+    #     nll_loss = nll_loss.squeeze(-1)
+    #     smooth_loss = smooth_loss.squeeze(-1)
+    # if reduce:
+    #     nll_loss = nll_loss.sum()
+    #     smooth_loss = smooth_loss.sum()
+    # eps_i = epsilon / lprobs.size(-1)
+    # loss = (1. - epsilon) * nll_loss + eps_i * smooth_loss
+    return loss, loss
 
 
-@register_criterion('label_smoothed_cross_entropy')
-class LabelSmoothedCrossEntropyCriterion(FairseqCriterion):
+@register_criterion('label_smoothed_cross_entropy_with_mixup')
+class LabelSmoothedCrossEntropyMixupCriterion(FairseqCriterion):
 
     def __init__(self, args, task):
         super().__init__(args, task)
@@ -73,8 +73,9 @@ class LabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         lprobs = lprobs.view(-1, lprobs.size(-1))
         target = model.get_targets(sample, net_output).view(-1, 1)
         acc1, acc5 = accuracy(lprobs, target, topk=(1, 5))
+        target_mixup = sample['target_mixup']
         loss, nll_loss = label_smoothed_nll_loss(
-            lprobs, target, self.eps, ignore_index=self.padding_idx, reduce=reduce,
+            lprobs, target_mixup, self.eps, ignore_index=self.padding_idx, reduce=reduce,
         )
         return loss, nll_loss, acc1, acc5
 

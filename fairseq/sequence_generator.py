@@ -114,6 +114,10 @@ class SequenceGenerator(object):
             prefix_tokens (torch.LongTensor, optional): force decoder to begin
                 with these tokens
         """
+        print('Measuring decoding time on GPU for dataset generation...')
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
         model = EnsembleModel(models)
         if not self.retain_dropout:
             model.eval()
@@ -513,7 +517,11 @@ class SequenceGenerator(object):
         for sent in range(len(finalized)):
             finalized[sent] = sorted(finalized[sent], key=lambda r: r['score'], reverse=True)
 
-        return finalized
+        end.record()
+        torch.cuda.synchronize()
+        decoder_times = start.elapsed_time(end)
+
+        return finalized, decoder_times
 
 
 class EnsembleModel(torch.nn.Module):

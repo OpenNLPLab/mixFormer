@@ -24,8 +24,7 @@ class AdaptiveInput(nn.Module):
         cutoff: List[int],
     ):
         super().__init__()
-        print("#############")
-        print(vocab_size)
+
         if vocab_size > cutoff[-1]:
             cutoff = cutoff + [vocab_size]
         else:

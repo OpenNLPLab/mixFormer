@@ -8,7 +8,7 @@ restore-file: checkpoints/wikitext-103/supertransformer/config/checkpoint_best.p
 
 # model
 arch: transformer_lm_wiki103_super
-data: ./data-bin/data_bin
+data: ../data-bin/wikitext-103
 max-relative-length: -1
 
 # training settings

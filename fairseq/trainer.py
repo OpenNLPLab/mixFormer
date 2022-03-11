@@ -6,7 +6,7 @@
 """
 Train a network across multiple GPUs.
 """
-
+from timm.data import Mixup
 from collections import OrderedDict
 import contextlib
 from itertools import chain
@@ -64,9 +64,20 @@ class Trainer(object):
 
         self.init_meters(args)
 
+        self.mixup_fn = None
+        if args.task == 'classification':
+            mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
+            if mixup_active:
+                self.mixup_fn = Mixup(
+                    mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
+                    prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
+                    label_smoothing=args.smoothing, num_classes=args.nb_classes)
+
     def init_meters(self, args):
         self.meters = OrderedDict()
         self.meters['train_loss'] = AverageMeter()
+        self.meters['valid_acc1'] = AverageMeter()
+        self.meters['valid_acc5'] = AverageMeter()
         self.meters['train_nll_loss'] = AverageMeter()
         self.meters['valid_loss'] = AverageMeter()
         self.meters['valid_nll_loss'] = AverageMeter()
@@ -131,7 +142,10 @@ class Trainer(object):
                 chain(self.model.parameters(), self.criterion.parameters()),
             )
         )
-
+        # if self.args.task == 'classification':
+        #     skip = self.model.no_weight_decay()
+        #     from fairseq.optim.adamw import add_weight_decay
+        #     params = add_weight_decay([self.model, self.criterion], self.args.weight_decay, skip)
         if self.args.fp16:
             if self.cuda and torch.cuda.get_device_capability(0)[0] < 7:
                 print('| WARNING: your device does NOT support faster training with --fp16, '
@@ -478,13 +492,18 @@ class Trainer(object):
         sample_size = self.task.grad_denom(
             sample_size, self.get_criterion()
         )
-
         # update meters for validation
         ntokens = logging_output.get('ntokens', 0)
         self.meters['valid_loss'].update(logging_output.get('loss', 0), sample_size)
         if 'valid_acc' in self.meters:
             self.meters['valid_acc'].update(
                 logging_output.get('acc', 0), sample_size)
+        if 'valid_acc1' in self.meters:
+            self.meters['valid_acc1'].update(
+                logging_output.get('acc1', 0), sample_size)
+        if 'valid_acc5' in self.meters:
+            self.meters['valid_acc5'].update(
+                logging_output.get('acc5', 0), sample_size)
 
         if 'nll_loss' in logging_output:
             self.meters['valid_nll_loss'].update(logging_output.get('nll_loss', 0), ntokens)
@@ -548,10 +567,14 @@ class Trainer(object):
     def _prepare_sample(self, sample):
         if sample is None or len(sample) == 0:
             return None
-
         if self.cuda:
             sample = utils.move_to_cuda(sample)
-
+        if self.mixup_fn is not None:
+            samples_ = sample['net_input']['src_tokens']
+            targets_ = sample['target']
+            samples_tmp, targets_tmp = self.mixup_fn(samples_, targets_)
+            sample['net_input']['src_tokens'] = samples_tmp
+            sample['target_mixup'] = targets_tmp
         def apply_half(t):
             if t.dtype is torch.float32:
                 return t.half()

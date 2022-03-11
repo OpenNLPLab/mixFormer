@@ -7,9 +7,9 @@ output_path=$(dirname -- "$checkpoints_path")
 out_name=$(basename -- "$configs")
 
 mkdir -p $output_path/exp
-
-python generate.py \
-        --data ../data/binary/iwslt14.tokenized.de-en  \
+spring.submit run --gpu -n1 \
+"python generate.py \
+        --data data/binary/iwslt14_de_en  \
         --path "$checkpoints_path" \
         --gen-subset $subset \
         --beam 5 \
@@ -17,7 +17,7 @@ python generate.py \
         --batch-size 128 \
         --remove-bpe \
         --configs=$configs \
-        > $output_path/exp/${out_name}_${subset}_gen.out
+        > $output_path/exp/${out_name}_${subset}_gen.out"
 
 GEN=$output_path/exp/${out_name}_${subset}_gen.out
 

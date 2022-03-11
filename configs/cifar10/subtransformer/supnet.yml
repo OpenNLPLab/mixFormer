@@ -1,0 +1,90 @@
+# model
+train-subtransformer: True
+validate-subtransformer: True
+task: classification
+arch: transformersuper_cifar10_small
+data: data
+#encoder-learned-pos: True
+#share-all-embeddings: True
+#share-decoder-input-output-embed: False
+encoder-normalize-before: True
+#decoder-normalize-before: True
+max-relative-length: 14
+#rank-list-size: 100
+max-tokens-valid: 10000
+input-size: 224
+# training settings
+seed: 1
+optimizer: adam
+adam-betas: (0.9, 0.999)
+max-tokens: 100000
+weight-decay: 0.05
+dropout: 0.
+relu-dropout: 0.1
+#activation-fn: gelu
+attention-dropout: 0.
+change-qkv: True
+fp16: True
+criterion: label_smoothed_cross_entropy
+save-dir: checkpoints/cifar10_transformer_subnet_S_cosinelr_droppath_4gpu_ellr
+label-smoothing: 0.1
+log-interval: 1000
+mixup: 0
+cutmix: 0
+clip-norm: 0.0
+#reset-optimizer: True
+#reset-lr-scheduler: True
+min-lr: 1e-07
+max-epoch: 711
+max-update: 140000
+#max-batch: 9000
+max-sentences: 64
+warmup-updates: 976
+lr-scheduler: cosine
+lr: 1e-6
+warmup-init-lr: 1e-6
+max-lr: 1e-3
+num-workers: 2
+distributed-world-size: 4
+find-unused-parameters: True
+distributed-port: 12333
+# logging
+keep-last-epochs: 5
+save-interval: 1
+#log-interval: 100
+validate-interval: 1
+sentence-avg: True
+# SuperTransformer configs
+encoder-embed-dim: 448
+#decoder-embed-dim: 640
+
+encoder-ffn-embed-dim: 1792
+#decoder-ffn-embed-dim: 2048
+
+encoder-layers: 14
+decoder-layers: 0
+
+encoder-attention-heads: 7
+#decoder-attention-heads: 8
+
+#qkv-dim: 512
+
+# SubTransformers search space
+#encoder-rpr-choice: [16, 12, 8]
+##decoder-rpr-choice: [16, 12, 8]
+#encoder-embed-choice: [320, 384, 448]
+##decoder-embed-choice: [640, 512]
+#
+#encoder-ffn-embed-dim-choice: [1792, 1568, 1344, 896, 672]
+##decoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
+#
+#encoder-layer-num-choice: [12, 13, 14]
+##decoder-layer-num-choice: [6, 5, 4, 3, 2, 1]
+#
+#encoder-self-attention-heads-choice: [5, 6, 7]
+##decoder-self-attention-heads-choice: [8, 4, 2]
+##decoder-ende-attention-heads-choice: [8, 4, 2]
+
+# for arbitrary encoder decoder attention. -1 means attending to last one encoder layer
+# 1 means last two encoder layers, 2 means last three encoder layers
+#decoder-arbitrary-ende-attn-choice: [-1, 1, 2]

@@ -25,11 +25,11 @@ class Sampler(object):
     def scoring(self, sample):
 
         def get_itr():
-            self.args.max_tokens_valid = 4096 * 2
+            self.args.max_tokens_valid = 1000000
             itr = self.task.get_batch_iterator(
                 dataset=self.task.dataset('valid'),
                 max_tokens=self.args.max_tokens_valid,
-                max_sentences=6,
+                max_sentences=self.args.max_sentences,
                 max_positions=utils.resolve_max_positions(
                     self.task.max_positions(),
                     self.trainer.get_model().max_positions(),
@@ -43,7 +43,7 @@ class Sampler(object):
         progress = get_itr()
 
         # reset validation loss meters
-        for k in ['valid_acc1', 'vali d_acc5']:
+        for k in ['valid_acc1', 'valid_acc5']:
             meter = self.trainer.get_meter(k)
             if meter is not None:
                 meter.reset()

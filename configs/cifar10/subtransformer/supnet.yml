@@ -9,7 +9,7 @@ data: data
 #share-decoder-input-output-embed: False
 encoder-normalize-before: True
 #decoder-normalize-before: True
-max-relative-length: 14
+max-relative-length: -1
 #rank-list-size: 100
 max-tokens-valid: 10000
 input-size: 224
@@ -24,9 +24,9 @@ relu-dropout: 0.1
 #activation-fn: gelu
 attention-dropout: 0.
 change-qkv: True
-fp16: True
+fp16: False
 criterion: label_smoothed_cross_entropy
-save-dir: checkpoints/cifar10_transformer_subnet_S_cosinelr_droppath_4gpu_ellr
+save-dir: checkpoints/cifar10_subnet_cosformer_87.4
 label-smoothing: 0.1
 log-interval: 1000
 mixup: 0

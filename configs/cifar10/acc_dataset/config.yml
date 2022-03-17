@@ -1,10 +1,15 @@
-candidate-size: 1000
+candidate-size: 2000
 task: classification
 # path
-restore-file: checkpoints/cifar10/supertransformer/large/checkpoint_best.pt
-data-path: ./acc_dataset/cifar10_loss.data
+restore-file: /mnt/lustre/liuzexiang/Code/ranknas_lu/rank_nas/checkpoints/cifar10_cosformer_supernet/checkpoint_last.pt
+data-path: /mnt/lustre/liuzexiang/Code/ranknas_lu/rank_nas/acc_dataset/cifar10_cosformer_acc.data
 data: data
-
+dropout: 0.
+relu-dropout: 0.1
+attention-dropout: 0.
+change-qkv: True
+mixup: 0
+cutmix: 0
 
 ## data augmentation
 #augmentation: True
@@ -19,44 +24,45 @@ arch: transformersuper_cifar10_small
 #share-all-embeddings: True
 #share-decoder-input-output-embed: False
 encoder-normalize-before: True
+max-sentences: 128
 #decoder-normalize-before: True
-max-relative-length: 8
+max-relative-length: -1
 num-workers: 2
 valid-cnt-max: 100000
 # evaluation settings
-max-tokens: 4096
-fp16: True
+max-tokens: 100000
+fp16: False
 #seed: 1
 reset-optimizer: True
 
 # SuperTransformer configs
-encoder-embed-dim: 640
+encoder-embed-dim: 448
 #decoder-embed-dim: 640
 
-encoder-ffn-embed-dim: 2048
+encoder-ffn-embed-dim: 1792
 #decoder-ffn-embed-dim: 2048
 
-encoder-layers: 6
+encoder-layers: 14
 decoder-layers: 0
 
-encoder-attention-heads: 8
+encoder-attention-heads: 7
 #decoder-attention-heads: 8
 
-qkv-dim: 512
+#qkv-dim: 512
 
 # SubTransformers search space
 encoder-rpr-choice: [16, 12, 8]
 #decoder-rpr-choice: [16, 12, 8]
-encoder-embed-choice: [640, 512]
+encoder-embed-choice: [320, 384, 448]
 #decoder-embed-choice: [640, 512]
 
-encoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
+encoder-ffn-embed-dim-choice: [1792, 1568, 1344, 896, 672]
 #decoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
 
-encoder-layer-num-choice: [6]
+encoder-layer-num-choice: [12, 13, 14]
 #decoder-layer-num-choice: [6, 5, 4, 3, 2, 1]
 
-encoder-self-attention-heads-choice: [8, 4, 2]
+encoder-self-attention-heads-choice: [5, 6, 7]
 #decoder-self-attention-heads-choice: [8, 4, 2]
 #decoder-ende-attention-heads-choice: [8, 4, 2]
 

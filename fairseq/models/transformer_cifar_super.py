@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from fairseq.modules.cifar_embedding_super import PatchembedSuper, trunc_normal_
+from fairseq.modules.multihead_cosformer_attention import MultiheadCosformerAttention
+from fairseq.modules.multihead_cosformer_attention_super import MultiheadCosformerAttentionSuper
 from fairseq import options, utils
 from fairseq.models import (
     FairseqEncoder,
@@ -604,7 +606,7 @@ class TransformerEncoderLayer(nn.Module):
         args (argparse.Namespace): parsed command-line arguments
     """
 
-    def __init__(self, args, layer_idx, config=None, drop_path=0.):
+    def __init__(self, args, layer_idx, add_bias_kv=False, add_zero_attn=False, config=None, drop_path=0.):
         super().__init__()
 
         # the configs of super arch
@@ -632,13 +634,37 @@ class TransformerEncoderLayer(nn.Module):
         self.is_identity_layer = None
 
         self.qkv_dim = args.qkv_dim
-
         if args.max_relative_length == -1:
-            self.self_attn = MultiheadAttentionSuper(
-                super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
+            # self.self_attn = MultiheadAttentionSuper(
+            #     super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
+            #     is_encoder=True,
+            #     dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim, is_fixed=self.fixed
+            # )
+            self.self_attn = MultiheadCosformerAttention(
+                embed_dim=self.super_embed_dim,
+                num_heads=self.super_self_attention_heads_this_layer,
                 is_encoder=True,
-                dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim, is_fixed=self.fixed
+                dropout=args.attention_dropout,
+                add_bias_kv=add_bias_kv,
+                add_zero_attn=add_zero_attn,
+                self_attention=True,
+                qkv_dim=self.qkv_dim,
+                is_fixed=self.fixed,
+                causal=True
             )
+            if self.change_qkv:
+                self.self_attn = MultiheadCosformerAttentionSuper(
+                    embed_dim=self.super_embed_dim,
+                    num_heads=self.super_self_attention_heads_this_layer,
+                    is_encoder=True,
+                    dropout=args.attention_dropout,
+                    add_bias_kv=add_bias_kv,
+                    add_zero_attn=add_zero_attn,
+                    self_attention=True,
+                    qkv_dim=self.qkv_dim,
+                    is_fixed=self.fixed,
+                    causal=True
+                )
         else:
             self.self_attn = RelativeMultiheadAttention(
                 super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
@@ -646,13 +672,13 @@ class TransformerEncoderLayer(nn.Module):
                 dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim,
                 max_relative_length=args.max_relative_length, is_fixed=self.fixed
             )
-        if self.change_qkv:
-            self.self_attn = RelativeMultiheadAttentionSuper(
-                super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
-                is_encoder=True,
-                dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim,
-                max_relative_length=args.max_relative_length, is_fixed=self.fixed
-            )
+            if self.change_qkv:
+                self.self_attn = RelativeMultiheadAttentionSuper(
+                    super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
+                    is_encoder=True,
+                    dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim,
+                    max_relative_length=args.max_relative_length, is_fixed=self.fixed
+                )
         if self.fixed:
             self.self_attn_layer_norm = LayerNorm(self.super_embed_dim)
         else:

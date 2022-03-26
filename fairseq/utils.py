@@ -444,13 +444,14 @@ def sample_configs_classification(choices, reset_rand_seed, rand_seed=0, super_d
     # encoder
     encoder_ffn_embed_dim = []
     encoder_self_attention_heads = []
+    encoder_attention_choices = []
     for _ in range(config['encoder']['encoder_layer_num']):
         encoder_ffn_embed_dim.append(random.choice(choices['encoder']['encoder_ffn_embed_dim']))
         encoder_self_attention_heads.append(random.choice(choices['encoder']['encoder_self_attention_heads']))
-
+        encoder_attention_choices.append(random.choice(choices['encoder']['encoder_attention_choices']))
     config['encoder']['encoder_ffn_embed_dim'] = encoder_ffn_embed_dim
     config['encoder']['encoder_self_attention_heads'] = encoder_self_attention_heads
-
+    config['encoder']['encoder_attention_choices'] = encoder_attention_choices
     return config
 
 def sample_configs_lm(choices, reset_rand_seed, rand_seed=0, super_decoder_num_layer=6):
@@ -514,6 +515,7 @@ def get_subtransformer_config(args):
                 'encoder_layer_num': args.encoder_layer_num_subtransformer,
                 'encoder_ffn_embed_dim': args.encoder_ffn_embed_dim_all_subtransformer,
                 'encoder_self_attention_heads': args.encoder_self_attention_heads_all_subtransformer,
+                'encoder_attention_choices': args.encoder_attention_choices_all_subtransformer,
             }
         }
 
@@ -556,6 +558,7 @@ def get_all_choices(args):
                 'encoder_layer_num': args.encoder_layer_num_choice,
                 'encoder_ffn_embed_dim': args.encoder_ffn_embed_dim_choice,
                 'encoder_self_attention_heads': args.encoder_self_attention_heads_choice,
+                'encoder_attention_choices': args.attn_cal_choice
             }
         }
     else:
@@ -567,7 +570,7 @@ def get_feature_info():
     return ['encoder_embed_dim', 'encoder_layer_num', 'encoder_ffn_embed_dim_avg', 'encoder_self_attention_heads_avg', 'decoder_embed_dim', 'decoder_layer_num', 'decoder_ffn_embed_dim_avg', 'decoder_self_attention_heads_avg', 'decoder_ende_attention_heads_avg', 'decoder_arbitrary_ende_attn_avg']
 
 def get_feature_info_classification():
-    return ['encoder_embed_dim', 'encoder_layer_num', 'encoder_ffn_embed_dim_avg', 'encoder_self_attention_heads_avg']
+    return ['encoder_embed_dim', 'encoder_layer_num', 'encoder_ffn_embed_dim_avg', 'encoder_self_attention_heads_avg', 'encoder_attention_choices_avg']
 
 def get_config_features(config):
 
@@ -585,6 +588,8 @@ def get_config_features(config):
         encoder_self_attention_heads_mean = np.mean(config['encoder']['encoder_self_attention_heads'][:encoder_layer_num])
         features.append(encoder_self_attention_heads_mean)
 
+        encoder_attention_choices_mean = np.mean(config['encoder']['encoder_attention_choices'][:encoder_layer_num])
+        features.append(encoder_attention_choices_mean)
     if 'decoder' in config:
         features.append(config['decoder']['decoder_embed_dim'])
 
@@ -665,7 +670,7 @@ def get_represent_configs(args):
                 'encoder_layer_num': max(args.encoder_layer_num_choice),
                 'encoder_ffn_embed_dim': [max(args.encoder_ffn_embed_dim_choice)] * args.encoder_layers,
                 'encoder_self_attention_heads': [max(args.encoder_self_attention_heads_choice)] * args.encoder_layers,
-
+                'encoder_attention_choices':  [max(args.attn_cal_choice)] * args.encoder_layers,
             },
         }
 
@@ -676,7 +681,7 @@ def get_represent_configs(args):
                 'encoder_layer_num': min(args.encoder_layer_num_choice),
                 'encoder_ffn_embed_dim': [min(args.encoder_ffn_embed_dim_choice)] * args.encoder_layers,
                 'encoder_self_attention_heads': [min(args.encoder_self_attention_heads_choice)] * args.encoder_layers,
-
+                'encoder_attention_choices': [min(args.attn_cal_choice)] * args.encoder_layers,
             },
         }
     else:

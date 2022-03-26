@@ -1,0 +1,60 @@
+lat-dataset-path: ./latency_dataset/cifar_mixatt_gpu.data
+arch-path: ./latency_dataset/cifar_mixatt_gpu.arch
+lat-dataset-size: 2000
+max-sentences: 1
+max-relative-length: 14
+latgpu: True
+latiter: 20
+latsilent: True
+flops: False
+task: classification
+# below is the configs for the data point sampling space for the latency predictor
+dropout: 0.
+relu-dropout: 0.1
+attention-dropout: 0.
+change-qkv: True
+mixup: 0
+cutmix: 0
+# model
+arch: transformersuper_cifar10_small
+data: data
+#share-all-embeddings: True
+#share-decoder-input-output-embed: False
+encoder-normalize-before: True
+#decoder-normalize-before: True
+
+# SuperTransformer configs
+encoder-embed-dim: 448
+#decoder-embed-dim: 640
+
+encoder-ffn-embed-dim: 1792
+#decoder-ffn-embed-dim: 2048
+
+encoder-layers: 14
+decoder-layers: 0
+
+encoder-attention-heads: 7
+#decoder-attention-heads: 8
+
+#qkv-dim: 512
+
+# SubTransformers search space
+encoder-rpr-choice: [16, 12, 8]
+#decoder-rpr-choice: [16, 12, 8]
+encoder-embed-choice: [320, 384, 448]
+#decoder-embed-choice: [640, 512]
+
+encoder-ffn-embed-dim-choice: [1792, 1568, 1344, 896, 672]
+#decoder-ffn-embed-dim-choice: [2048, 1536, 1024, 768]
+
+encoder-layer-num-choice: [12, 13, 14]
+#decoder-layer-num-choice: [6, 5, 4, 3, 2, 1]
+
+encoder-self-attention-heads-choice: [5, 6, 7]
+#decoder-self-attention-heads-choice: [8, 4, 2]
+#decoder-ende-attention-heads-choice: [8, 4, 2]
+
+# for arbitrary encoder decoder attention. -1 means attending to last one encoder layer
+# 1 means last two encoder layers, 2 means last three encoder layers
+#decoder-arbitrary-ende-attn-choice: [-1, 1, 2]
+attn-cal-choice: [1, 2, 3]

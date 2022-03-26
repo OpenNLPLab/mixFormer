@@ -9,7 +9,7 @@ data: data
 #share-decoder-input-output-embed: False
 encoder-normalize-before: True
 #decoder-normalize-before: True
-max-relative-length: -1
+max-relative-length: 14
 #rank-list-size: 100
 max-tokens-valid: 10000
 input-size: 224
@@ -26,7 +26,7 @@ attention-dropout: 0.
 change-qkv: True
 fp16: False
 criterion: label_smoothed_cross_entropy
-save-dir: checkpoints/cifar10_subnet_cosformer_87.4
+save-dir: checkpoints/cifar10_subnet_mixformer_80.18_12.50/
 label-smoothing: 0.1
 log-interval: 1000
 mixup: 0
@@ -66,7 +66,7 @@ decoder-layers: 0
 
 encoder-attention-heads: 7
 #decoder-attention-heads: 8
-
+attn-cal-choice: [1, 2, 3]
 #qkv-dim: 512
 
 # SubTransformers search space

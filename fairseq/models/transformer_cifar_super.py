@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from fairseq.modules.cifar_embedding_super import PatchembedSuper, trunc_normal_
 from fairseq.modules.multihead_cosformer_attention import MultiheadCosformerAttention
+from fairseq.modules.multihead_attention_super_qkv import MultiheadAttentionSuperqkv
 from fairseq.modules.multihead_cosformer_attention_super import MultiheadCosformerAttentionSuper
 from fairseq import options, utils
 from fairseq.models import (
@@ -144,7 +145,10 @@ class VisionTransformerSuperModel(SuperFairseqEncoderModel):
         parser.add_argument('--max-relative-length', type=int,
                             help='the maximum relative length for RPR attention',
                             default=-1)
-
+        parser.add_argument('--attn-cal-choice',
+                            nargs='+', default=[1, 2, 3], type=int)
+        parser.add_argument('--attn_cal', type=int, metavar='N',
+                            help='way to calculate attention')
         # SuperTransformer
         # embedding dim
         parser.add_argument('--encoder-rpr-choice', nargs='+',
@@ -207,6 +211,8 @@ class VisionTransformerSuperModel(SuperFairseqEncoderModel):
         parser.add_argument(
             '--encoder-self-attention-heads-all-subtransformer', nargs='+', default=None, type=int)
         parser.add_argument(
+            '--encoder-attention-choices-all-subtransformer', nargs='+', default=None, type=int)
+        parser.add_argument(
             '--decoder-self-attention-heads-all-subtransformer', nargs='+', default=None, type=int)
         parser.add_argument(
             '--decoder-ende-attention-heads-all-subtransformer', nargs='+', default=None, type=int)
@@ -239,7 +245,13 @@ class VisionTransformerSuperModel(SuperFairseqEncoderModel):
                 if name.split('.')[0] == 'decoder' and eval(name.split('.')[2]) >= config['decoder'][
                         'decoder_layer_num']:
                     continue
-
+                if name.split('.')[3] in ['self_attn_cosformer', 'self_attn_multihead']:
+                    continue
+                if name.split('.')[3] == 'self_attn_relative':
+                    name_ = name.split('.')
+                    module = self.encoder.layers[int(name_[2])].self_attn
+                    numels.append(module.calc_sampled_param_num())
+                    continue
                 numels.append(module.calc_sampled_param_num())
         return sum(numels)
 
@@ -417,7 +429,7 @@ class TransformerEncoder(FairseqEncoder):
 
         # Caution: this is a list for all layers
         self.sample_self_attention_heads = config['encoder']['encoder_self_attention_heads']
-
+        self.attn_choices = config['encoder']['encoder_attention_choices']
         self.sample_dropout = calc_dropout(
             self.super_dropout, self.sample_embed_dim, self.super_embed_dim)
         self.sample_activation_dropout = calc_dropout(self.super_activation_dropout, self.sample_embed_dim,
@@ -443,7 +455,8 @@ class TransformerEncoder(FairseqEncoder):
                                         sample_self_attention_heads_this_layer=self.sample_self_attention_heads[
                                             i],
                                         sample_dropout=self.sample_dropout,
-                                        sample_activation_dropout=self.sample_activation_dropout)
+                                        sample_activation_dropout=self.sample_activation_dropout,
+                                        attn_choice_this_layer=self.attn_choices[i])
             # exceeds sample layer number
             else:
                 layer.set_sample_config(is_identity_layer=True)
@@ -615,11 +628,12 @@ class TransformerEncoderLayer(nn.Module):
             self.super_embed_dim = args.encoder_embed_dim
             self.super_ffn_embed_dim_this_layer = args.encoder_ffn_embed_dim
             self.super_self_attention_heads_this_layer = args.encoder_attention_heads
+            self.attn_choice_this_layer = args.attn_cal
         else:
             self.super_embed_dim = config['encoder']['emb_dim']
             self.super_ffn_embed_dim_this_layer = config['encoder']['ffn_emb_dim'][layer_idx]
             self.super_self_attention_heads_this_layer = config['encoder']['self_attn_heads'][layer_idx]
-
+            self.attn_choice_this_layer = config['encoder']['encoder_attention_choices'][layer_idx]
         self.super_dropout = args.dropout
         self.super_activation_dropout = getattr(args, 'activation_dropout', 0)
         self.change_qkv = args.change_qkv
@@ -634,26 +648,10 @@ class TransformerEncoderLayer(nn.Module):
         self.is_identity_layer = None
 
         self.qkv_dim = args.qkv_dim
-        if args.max_relative_length == -1:
-            # self.self_attn = MultiheadAttentionSuper(
-            #     super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
-            #     is_encoder=True,
-            #     dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim, is_fixed=self.fixed
-            # )
-            self.self_attn = MultiheadCosformerAttention(
-                embed_dim=self.super_embed_dim,
-                num_heads=self.super_self_attention_heads_this_layer,
-                is_encoder=True,
-                dropout=args.attention_dropout,
-                add_bias_kv=add_bias_kv,
-                add_zero_attn=add_zero_attn,
-                self_attention=True,
-                qkv_dim=self.qkv_dim,
-                is_fixed=self.fixed,
-                causal=True
-            )
-            if self.change_qkv:
-                self.self_attn = MultiheadCosformerAttentionSuper(
+        #if args.max_relative_length == -1:
+
+        if self.change_qkv:
+            self.self_attn_cosformer = MultiheadCosformerAttentionSuper(
                     embed_dim=self.super_embed_dim,
                     num_heads=self.super_self_attention_heads_this_layer,
                     is_encoder=True,
@@ -665,20 +663,89 @@ class TransformerEncoderLayer(nn.Module):
                     is_fixed=self.fixed,
                     causal=True
                 )
-        else:
-            self.self_attn = RelativeMultiheadAttention(
-                super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
-                is_encoder=True,
-                dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim,
-                max_relative_length=args.max_relative_length, is_fixed=self.fixed
-            )
-            if self.change_qkv:
-                self.self_attn = RelativeMultiheadAttentionSuper(
+            self.self_attn_multihead = MultiheadAttentionSuperqkv(
+                    is_encoder=True,
+                    super_embed_dim=self.super_embed_dim,
+                    num_heads=self.super_self_attention_heads_this_layer,
+                    dropout=args.attention_dropout,
+                    add_bias_kv=add_bias_kv,
+                    add_zero_attn=add_zero_attn,
+                    self_attention=True,
+                    qkv_dim=self.qkv_dim,
+                    is_fixed=self.fixed
+                )
+            self.self_attn_relative = RelativeMultiheadAttentionSuper(
                     super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
                     is_encoder=True,
                     dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim,
                     max_relative_length=args.max_relative_length, is_fixed=self.fixed
                 )
+        self.self_attn_super = {1: self.self_attn_cosformer, 2: self.self_attn_multihead, 3: self.self_attn_relative}
+        self.self_attn = self.self_attn_super[self.attn_choice_this_layer]
+        # if self.attn_cal_this_layer == 1:
+        #     self.self_attn = MultiheadCosformerAttention(
+        #         embed_dim=self.super_embed_dim,
+        #         num_heads=self.super_self_attention_heads_this_layer,
+        #         is_encoder=True,
+        #         dropout=args.attention_dropout,
+        #         add_bias_kv=add_bias_kv,
+        #         add_zero_attn=add_zero_attn,
+        #         self_attention=True,
+        #         qkv_dim=self.qkv_dim,
+        #         is_fixed=self.fixed,
+        #         causal=True
+        #     )
+        #     if self.change_qkv:
+        #         self.self_attn = MultiheadCosformerAttentionSuper(
+        #             embed_dim=self.super_embed_dim,
+        #             num_heads=self.super_self_attention_heads_this_layer,
+        #             is_encoder=True,
+        #             dropout=args.attention_dropout,
+        #             add_bias_kv=add_bias_kv,
+        #             add_zero_attn=add_zero_attn,
+        #             self_attention=True,
+        #             qkv_dim=self.qkv_dim,
+        #             is_fixed=self.fixed,
+        #             causal=True
+        #         )
+        # elif self.attn_cal_this_layer == 2:
+        #     self.self_attn = MultiheadAttentionSuper(
+        #         is_encoder=True,
+        #         super_embed_dim=self.super_embed_dim,
+        #         num_heads=self.super_self_attention_heads_this_layer,
+        #         dropout=args.attention_dropout,
+        #         add_bias_kv=add_bias_kv,
+        #         add_zero_attn=add_zero_attn,
+        #         self_attention=True,
+        #         qkv_dim=self.qkv_dim,
+        #         is_fixed=self.fixed
+        #     )
+        #     if self.change_qkv:
+        #         self.self_attn = MultiheadAttentionSuperqkv(
+        #             is_encoder=True,
+        #             super_embed_dim=self.super_embed_dim,
+        #             num_heads=self.super_self_attention_heads_this_layer,
+        #             dropout=args.attention_dropout,
+        #             add_bias_kv=add_bias_kv,
+        #             add_zero_attn=add_zero_attn,
+        #             self_attention=True,
+        #             qkv_dim=self.qkv_dim,
+        #             is_fixed=self.fixed
+        #         )
+        # elif self.attn_cal_this_layer == 3:
+        #     self.self_attn = RelativeMultiheadAttention(
+        #         super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
+        #         is_encoder=True,
+        #         dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim,
+        #         max_relative_length=args.max_relative_length, is_fixed=self.fixed
+        #     )
+        #     if self.change_qkv:
+        #         self.self_attn = RelativeMultiheadAttentionSuper(
+        #             super_embed_dim=self.super_embed_dim, num_heads=self.super_self_attention_heads_this_layer,
+        #             is_encoder=True,
+        #             dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim,
+        #             max_relative_length=args.max_relative_length, is_fixed=self.fixed
+        #         )
         if self.fixed:
             self.self_attn_layer_norm = LayerNorm(self.super_embed_dim)
         else:
@@ -706,9 +773,10 @@ class TransformerEncoderLayer(nn.Module):
             self.final_layer_norm = LayerNormSuper(self.super_embed_dim)
 
     def set_sample_config(self, is_identity_layer, sample_embed_dim=None, sample_ffn_embed_dim_this_layer=None,
-                          sample_self_attention_heads_this_layer=None, sample_dropout=None,
+                          sample_self_attention_heads_this_layer=None, sample_dropout=None, attn_choice_this_layer=1,
                           sample_activation_dropout=None):
-
+        self.attn_choice_this_layer = attn_choice_this_layer
+        self.self_attn = self.self_attn_super[self.attn_choice_this_layer]
         if is_identity_layer:
             self.is_identity_layer = True
             return
@@ -858,7 +926,7 @@ def base_architecture(args):
 
     args.fixed = getattr(args, 'fixed', False)
     args.max_relative_length = getattr(args, 'max_relative_length', -1)
-
+    args.attn_cal = getattr(args, 'attn_cal', 1)
 
 
 @register_model_architecture('transformersuper_cifar10', 'transformersuper_cifar10_small')
@@ -867,8 +935,6 @@ def transformer_cifar10(args):
     args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 1024)
     args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 4)
     args.encoder_layers = getattr(args, 'encoder_layers', 6)
-
-
     base_architecture(args)
 
 # parameters used in the "Attention Is All You Need" paper (Vaswani et al., 2017)

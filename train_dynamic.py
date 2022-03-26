@@ -442,7 +442,7 @@ def cli_main():
                         help='candidate rank list size for validation')
     parser.add_argument('--loss', type=float, default=0,
                         help='the expected validation loss')
-    parser.add_argument('--max-batch', type=int, default=2000,
+    parser.add_argument('--max-batch', type=int, default=9000,
                         help='the maximum number of batches in an epoch')
 
     options.add_generation_args(parser)

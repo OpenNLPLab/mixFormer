@@ -7,7 +7,7 @@ data: data
 #share-decoder-input-output-embed: False
 encoder-normalize-before: True
 #decoder-normalize-before: True
-max-relative-length: -1
+max-relative-length: 14
 rank-list-size: 100
 max-tokens-valid: 10000
 input-size: 224
@@ -26,7 +26,7 @@ mixup: 0
 cutmix: 0
 criterion: label_smoothed_cross_entropy
 label-smoothing: 0.1
-save-dir: checkpoints/cifar10_cosformer_supernet/
+save-dir: checkpoints/cifar10_mixformer_supernet/
 clip-norm: 0.0
 log-interval: 1000
 #reset-optimizer: True
@@ -49,7 +49,7 @@ distributed-port: 12333
 keep-last-epochs: 5
 save-interval: 1
 #log-interval: 100
-validate-interval: 800
+validate-interval: 10
 sentence-avg: True
 # SuperTransformer configs
 encoder-embed-dim: 448
@@ -81,7 +81,7 @@ encoder-layer-num-choice: [12, 13, 14]
 encoder-self-attention-heads-choice: [5, 6, 7]
 #decoder-self-attention-heads-choice: [8, 4, 2]
 #decoder-ende-attention-heads-choice: [8, 4, 2]
-
+attn-cal-choice: [1, 2, 3]
 # for arbitrary encoder decoder attention. -1 means attending to last one encoder layer
 # 1 means last two encoder layers, 2 means last three encoder layers
 #decoder-arbitrary-ende-attn-choice: [-1, 1, 2]

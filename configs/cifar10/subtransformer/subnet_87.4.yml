@@ -6,3 +6,5 @@ encoder-layer-num-subtransformer: 12
 encoder-ffn-embed-dim-all-subtransformer: [1792, 1792, 1344, 1568, 1344, 1344, 1344, 1344, 1568, 672, 1568, 1344, 896, 672]
 
 encoder-self-attention-heads-all-subtransformer: [7, 7, 6, 7, 5, 7, 5, 7, 5, 6, 7, 6, 7, 5]
+
+encoder-attention-choices-all-subtransformer: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]

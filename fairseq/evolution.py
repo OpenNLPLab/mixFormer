@@ -22,6 +22,7 @@ class Converter(object):
             self.encoder_layer_num_choice = args.encoder_layer_num_choice
             self.encoder_ffn_embed_dim_choice = args.encoder_ffn_embed_dim_choice
             self.encoder_self_attention_heads_choice = args.encoder_self_attention_heads_choice
+            self.encoder_attention_choices = args.attn_cal_choice
             self.decoder_ende_attention_heads_choice = args.decoder_ende_attention_heads_choice
             self.decoder_arbitrary_ende_attn_choice = args.decoder_arbitrary_ende_attn_choice
         if self.args.task == 'translation' or self.args.task == 'language_modeling':
@@ -53,6 +54,13 @@ class Converter(object):
                 else:
                     gene.append(config['encoder']
                                 ['encoder_self_attention_heads'][0])
+            for i in range(self.super_encoder_layer_num):
+                if i < sample_encoder_layer_num:
+                    gene.append(config['encoder']
+                                ['encoder_attention_choices'][i])
+                else:
+                    gene.append(config['encoder']
+                                ['encoder_attention_choices'][0])
 
         if self.args.task == 'translation' or self.args.task == 'language_modeling':
             sample_decoder_layer_num = config['decoder']['decoder_layer_num']
@@ -124,6 +132,7 @@ class Converter(object):
                     'encoder_layer_num': None,
                     'encoder_ffn_embed_dim': None,
                     'encoder_self_attention_heads': None,
+                    'encoder_attention_choices': None
                 }
             }
 
@@ -141,6 +150,9 @@ class Converter(object):
             config['encoder']['encoder_self_attention_heads'] = gene[current_index:
                                                                     current_index + self.super_encoder_layer_num]
             current_index += self.super_encoder_layer_num
+            config['encoder']['encoder_attention_choices'] = gene[current_index:
+                                                      current_index + self.super_encoder_layer_num]
+
         if self.args.task == 'translation' or self.args.task == 'language_modeling':
             config['decoder']['decoder_embed_dim'] = gene[current_index]
             current_index += 1
@@ -177,6 +189,8 @@ class Converter(object):
 
             for i in range(self.super_encoder_layer_num):
                 gene_choice.append(self.encoder_self_attention_heads_choice)
+            for i in range(self.super_encoder_layer_num):
+                gene_choice.append(self.encoder_attention_choices)
         if self.args.task == 'translation' or self.args.task == 'language_modeling':
             gene_choice.append(self.decoder_embed_choice)
             gene_choice.append(self.decoder_layer_num_choice)

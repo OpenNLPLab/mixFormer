@@ -245,7 +245,10 @@ class PerformanceRanker(object):
                 else:
                     outputs = None
         else:
-            features = floats[:4]
+            if len(floats) == 5:
+                features = floats[:4]
+            else:
+                features = floats[:5]
             if is_latency:
                 latency_std = floats[-1]
                 latency_mean = floats[-2]
@@ -254,7 +257,7 @@ class PerformanceRanker(object):
                 else:
                     outputs = None
             else:
-                outputs = floats[4]
+                outputs = floats[-1]
                 
         return features, outputs
 

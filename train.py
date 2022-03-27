@@ -373,7 +373,7 @@ def cli_main():
         pdb.set_trace()
     if args.distributed_init_method is None:
         distributed_utils.infer_init_method(args)
-    if args.distributed_init_method is not None:
+    if args.distributed_init_method is not None and args.distributed_world_size !=1 :
         # distributed training
         if torch.cuda.device_count() > 1 and not args.distributed_no_spawn:
             start_rank = args.distributed_rank

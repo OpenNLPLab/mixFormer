@@ -266,6 +266,37 @@ class MultiheadCosformerAttentionSuper(nn.Module):
             z_cos_sin = 1 / torch.clamp_min(torch.einsum('nlhi,nlhi->nlh', q_, torch.cumsum(k_, dim=1)), eps)
             # (N, L, h, d) -> (L, N, h, d) -> (L, N, E)
             attn_output = (qkv_cos_sin * z_cos_sin.unsqueeze(-1)).transpose(0, 1).contiguous().view(tgt_len, bsz, -1)
+
+        # if self.causal:
+        #     # # (N, L, h, 2 * d), (N, S, h, 2 * d), (N, S, h, d) -> (N, L, h, d)
+        #     # qkv_cos_sin = causal_linear(q_, k_, v)
+        #     # # 分母
+        #     # # (N, L, h)
+        #     # z_cos_sin = 1 / torch.clamp_min(torch.einsum('nlhi,nlhi->nlh', q_, torch.cumsum(k_, dim=1)), eps)
+        #     # # (N, L, h, d) -> (L, N, h, d) -> (L, N, E)
+        #     # attn_output = (qkv_cos_sin * z_cos_sin.unsqueeze(-1)).transpose(0, 1).contiguous().view(tgt_len, bsz, -1)
+        #
+        #     #################
+        #     q_ = q_.transpose(1, 2)
+        #     k_ = k_.transpose(1, 2)
+        #     v = v.transpose(1, 2)
+        #     weights = torch.matmul(q_, k_.transpose(2, 3))
+        #
+        #     if (attn_mask == None):
+        #         attn_mask = (torch.triu(torch.ones(tgt_len, tgt_len)) == 1).transpose(0, 1)
+        #         attn_mask = attn_mask.float().masked_fill(attn_mask == 0, float('-inf')).to(q)
+        #
+        #     # mask
+        #     if self.causal:
+        #         weights = weights.masked_fill(attn_mask == float("-inf"), 0)
+        #     # (N, h, L, S) -> (N, h, L, S)
+        #     denom = torch.clamp_min(weights.sum(dim=-1, keepdim=True), eps)
+        #     # (N, h, L, S) (N, h, L, S) -> (N, h, L, S)
+        #     attn_weights = weights / denom
+        #     # (N, h, L, S) (N, h, S, d) -> (N, h, L, d)
+        #     attn_output = torch.matmul(attn_weights, v)
+        #     # (N, h, L, d) -> (N, L, h, d) -> (L, N, h, d) -> (L, N, E)
+        #     attn_output = attn_output.transpose(1, 2).transpose(0, 1).contiguous().view(tgt_len, bsz, -1)
         else:
             # (N, S, h, 2 * d) (N, S, h, d) -> (N, h, d, 2 * d)
             kv_ = torch.einsum('nshd,nshm->nhmd', k_, v)

@@ -116,12 +116,14 @@ class PatchembedSuper(nn.Module):
         B, C, H, W = x.shape
         assert H == self.img_size[0] and W == self.img_size[1], \
             f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
-        x = F.conv2d(x, self.sampled_weight, self.sampled_bias, stride=self.patch_size, padding=self.proj.padding, dilation=self.proj.dilation).flatten(2).transpose(1,2)
+        x = F.conv2d(x, self.sampled_weight, self.sampled_bias, stride=self.patch_size, padding=self.proj.padding, dilation=self.proj.dilation)
+        B, C, H, W = x.shape
+        x = x.flatten(2).transpose(1,2)
         if self.scale:
             return x * self.sampled_scale
-        return x
-    # def calc_sampled_param_num(self):
-    #     return  self.sampled_weight.numel() + self.sampled_bias.numel()
+        return x, H, W
+    def calc_sampled_param_num(self):
+        return  self.sampled_weight.numel() + self.sampled_bias.numel()
 
     def get_complexity(self, sequence_length):
         total_flops = 0

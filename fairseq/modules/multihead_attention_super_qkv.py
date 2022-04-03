@@ -107,8 +107,8 @@ class MultiheadAttentionSuperqkv(nn.Module):
 
     def calc_sampled_param_num(self):
         assert self.in_proj_weight is not None and self.in_proj_bias is not None
-        in_proj_q_weight_numel = self.sample_q_embed_dim * self.qkv_dim
-        in_proj_v_weight_numel = in_proj_k_weight_numel = self.sample_kv_embed_dim * self.qkv_dim
+        in_proj_q_weight_numel = self.sample_q_embed_dim * self.sample_embed_dim
+        in_proj_v_weight_numel = in_proj_k_weight_numel = self.sample_kv_embed_dim * self.sample_embed_dim
         in_proj_bias_numel = self.in_proj_bias.numel()
 
         # does not count in the output proj because it will be counted in LinearSuper layer

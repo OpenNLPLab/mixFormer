@@ -68,7 +68,7 @@ def main(args, init_distributed=False):
         elif args.task == 'language_modeling':
             print(f"| Total parameters: {model_size} \n")
         elif args.task == 'classification':
-            print(f"| SubTransformer size (without embedding weights): {model_size} \n")
+            print(f"| SubTransformer size : {model_size} \n")
 
     else:
         model_s = 0
@@ -108,7 +108,9 @@ def main(args, init_distributed=False):
         model.profile(mode=True)
 
         if args.task == 'classification':
-            macs = torchprofile.profile_macs(model, args=(dummy_src_tokens))
+            if args.latgpu:
+                model.cuda()
+                macs = torchprofile.profile_macs(model, args=(dummy_src_tokens.cuda()))
             model.profile(mode=False)
             last_layer_macs = 0
         else:

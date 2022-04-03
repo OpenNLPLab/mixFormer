@@ -32,7 +32,7 @@ from fairseq.modules import (
     LayerNormSuper, RelativeMultiheadAttention, LayerNorm, Linear, RelativeMultiheadAttentionSuper
 
 )
-
+from fairseq.modules.multihead_cosformer_attention_2d_super import MultiheadCosformerAttention2dSuper
 import fairseq.init as init
 
 DEFAULT_MAX_SOURCE_POSITIONS = 1024
@@ -239,19 +239,27 @@ class VisionTransformerSuperModel(SuperFairseqEncoderModel):
                 if name == 'encoder.head':
                     numels.append(module.calc_sampled_param_num())
                     continue
+                if name == 'encoder.embed_tokens':
+                    numels.append(module.calc_sampled_param_num())
+                    continue
                 if name.split('.')[0] == 'encoder' and eval(name.split('.')[2]) >= config['encoder'][
                         'encoder_layer_num']:
                     continue
                 if name.split('.')[0] == 'decoder' and eval(name.split('.')[2]) >= config['decoder'][
                         'decoder_layer_num']:
                     continue
-                if name.split('.')[3] in ['self_attn_cosformer', 'self_attn_multihead']:
+                if name.split('.')[3] in ['self_attn_cosformer', 'self_attn_multihead', 'self_attn_cosformer2d']:
                     continue
                 if name.split('.')[3] == 'self_attn_relative':
                     name_ = name.split('.')
-                    module = self.encoder.layers[int(name_[2])].self_attn
-                    numels.append(module.calc_sampled_param_num())
-                    continue
+                    if len(name_) == 4:
+                        module = self.encoder.layers[int(name_[2])].self_attn
+                        numels.append(module.calc_sampled_param_num())
+                        continue
+                    elif len(name_) == 5:
+                        module = self.encoder.layers[int(name_[2])].self_attn.out_proj
+                        numels.append(module.calc_sampled_param_num())
+                        continue
                 numels.append(module.calc_sampled_param_num())
         return sum(numels)
 
@@ -480,7 +488,7 @@ class TransformerEncoder(FairseqEncoder):
         """
         # embed tokens and positions
         B = src_tokens.shape[0]
-        x = self.embed_tokens(src_tokens)
+        x, H, W = self.embed_tokens(src_tokens)
         cls_tokens = self.cls_token[..., :self.sample_embed_dim].expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
         x = self.sample_embed_scale * x
@@ -502,7 +510,7 @@ class TransformerEncoder(FairseqEncoder):
         # encoder layers
         for layer in self.layers:
             # print(x.shape)
-            x = layer(x, encoder_padding_mask)
+            x = layer(x, H, W, encoder_padding_mask)
             all_x.append(x)
 
         if self.layer_norm:
@@ -680,6 +688,18 @@ class TransformerEncoderLayer(nn.Module):
                     dropout=args.attention_dropout, self_attention=True, qkv_dim=self.qkv_dim,
                     max_relative_length=args.max_relative_length, is_fixed=self.fixed
                 )
+            # self.self_attn_cosformer2d = MultiheadCosformerAttention2dSuper(
+            #     embed_dim=self.super_embed_dim,
+            #     num_heads=self.super_self_attention_heads_this_layer,
+            #     is_encoder=True,
+            #     dropout=args.attention_dropout,
+            #     add_bias_kv=add_bias_kv,
+            #     add_zero_attn=add_zero_attn,
+            #     self_attention=True,
+            #     qkv_dim=self.qkv_dim,
+            #     is_fixed=self.fixed,
+            #     causal=True
+            # )
         self.self_attn_super = {1: self.self_attn_cosformer, 2: self.self_attn_multihead, 3: self.self_attn_relative}
         self.self_attn = self.self_attn_super[self.attn_choice_this_layer]
         # if self.attn_cal_this_layer == 1:
@@ -828,7 +848,7 @@ class TransformerEncoderLayer(nn.Module):
                     ] = state_dict[k]
                     del state_dict[k]
 
-    def forward(self, x, encoder_padding_mask, attn_mask=None):
+    def forward(self, x, H, W, encoder_padding_mask, attn_mask=None):
         """
         Args:
             x (Tensor): input to the layer of shape `(seq_len, batch, embed_dim)`

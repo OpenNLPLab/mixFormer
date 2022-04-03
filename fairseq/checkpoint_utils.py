@@ -364,5 +364,5 @@ def verify_checkpoint_directory(save_dir: str) -> None:
     except OSError as e:
         print('| Unable to access checkpoint save directory: {}'.format(save_dir))
         raise e
-    else:
-        os.remove(temp_file_path)
+    #else:
+        #os.remove(temp_file_path)

@@ -109,15 +109,22 @@ class RelativeMultiheadAttentionSuper(nn.Module):
 
     def calc_sampled_param_num(self):
         assert self.in_proj_weight is not None and self.in_proj_bias is not None
-        in_proj_q_weight_numel = self.sample_q_embed_dim * self.qkv_dim
-        in_proj_v_weight_numel = in_proj_k_weight_numel = self.sample_kv_embed_dim * self.qkv_dim
+        in_proj_q_weight_numel = self.sample_q_embed_dim * self.sample_embed_dim
+        in_proj_v_weight_numel = in_proj_k_weight_numel = self.sample_kv_embed_dim * self.sample_embed_dim
         in_proj_bias_numel = self.in_proj_bias.numel()
+        relative_position_keys_numel = self.relative_position_keys.numel()
+        if not self.k_only:
+            relative_position_values_numel = self.relative_position_values.numel()
+        else:
+            relative_position_values_numel = 0
 
         # does not count in the output proj because it will be counted in LinearSuper layer
         # out_proj_weight_numel = self.qkv_dim * self.sample_q_embed_dim
         # out_proj_bias_numel = self.
 
-        return in_proj_q_weight_numel + in_proj_k_weight_numel + in_proj_v_weight_numel + in_proj_bias_numel
+        return in_proj_q_weight_numel + in_proj_k_weight_numel + in_proj_v_weight_numel + in_proj_bias_numel + \
+               relative_position_keys_numel + relative_position_values_numel
+
 
     def set_sample_config(self, sample_embed_dim, sample_q_embed_dim, sample_attention_heads, sample_kv_embed_dim=None):
         self.sample_embed_dim = sample_embed_dim

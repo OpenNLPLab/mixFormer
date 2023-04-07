@@ -54,6 +54,10 @@ WikiText-103:
 python -u train_dynamic.py --configs=configs/wikitext-103/supertransformer/config.yml
 ```
 
+classification: cifar10:
+```
+sh train_supernet_cifar10.sh
+```
 After training the super-transformers, check `checkpoints`.
 
 # 2.1 Collect architectures and their performance
@@ -74,6 +78,10 @@ WikiText-103:
 CUDA_VISIBLE_DEVICES=0 python -u loss_dataset.py --configs=configs/wikitext-103/loss_dataset/config.yml
 ```
 
+classification: cifar10:
+```
+sh acc_dataset.sh
+```
 After collecting the data, check `loss_dataset`.
 
 ## 2.1.2 Collect the latency data
@@ -93,6 +101,10 @@ WikiText-103:
 CUDA_VISIBLE_DEVICES=0 python -u latency_dataset.py --configs=configs/wikitext-103/latency_dataset/gpu.yml
 ```
 
+classification: cifar10:
+```
+sh collect_latency.sh
+```
 After collecting the data, check `latency_dataset`.
 
 # 2.2 Train the performance ranker
@@ -113,6 +125,11 @@ WikiText-103:
 python -u ranker.py -data loss_dataset/wiki103_loss.data -save checkpoints/wikitext-103/loss_ranker
 ```
 
+classification: cifar10:
+```
+sh train_acc_ranker.sh
+```
+
 After training the loss ranker, check `checkpoints`.
 
 ## 2.2.2 Train the latency ranker
@@ -130,6 +147,11 @@ python -u ranker.py -data latency_dataset/wmt14_large_latency.data -save checkpo
 WikiText-103:
 ```
 python -u ranker.py -data latency_dataset/wiki103_gpu_latency.data -save checkpoints/wikitext-103/latency_ranker
+```
+
+classification: cifar10:
+```
+python -u ranker.py -data latency_dataset/cifar_mixatt_gpu.data -save checkpoints/cifar10/latency_ranker
 ```
 
 After training the latency ranker, check `checkpoints`.
@@ -159,7 +181,10 @@ python random_search.py \
  --candidate-size 100000 \
  --write-config-path configs
 ```
-
+classification: cifar10:
+```
+sh search_cifar_mix.sh
+```
 Replace `SELECTED_LATENCY_FEATURES` and `SELECTED_LOSS_FEATURES` with your results of Step 2.2.1 and Step 2.2.2.
 An example: `0 1 2 3 4 5`.
 
@@ -173,7 +198,7 @@ python train.py \
  --sub-configs=configs/wikitext-103/subtransformer/config.yml \
  --configs=configs/PATH_TO_YOUR_SEARCH_RESULT.yml 
 ```
-
+classification: cifar10: sh train_subnet_cifar10.sh
 **Replace PATH_TO_YOUR_SEARCH_RESULT to the result of Step 3**
 
 # 4.2 Evaluate the trained sub-transformer

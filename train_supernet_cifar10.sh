@@ -1,5 +1,5 @@
 T=`date +%m%d%H%M`
-TASK=cosformer_supernet
+TASK=cls_supernet
 g=$(($1<8?$1:8)) ##--distributed-port 12343
 spring.submit run  --gpu -n$1 --ntasks-per-node $g -p MMG \
 "python train_dynamic.py --configs=configs/cifar10/supertransformer/supernet-S.yml \

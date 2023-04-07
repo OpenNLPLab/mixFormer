@@ -26,7 +26,7 @@ from torchvision.datasets.folder import ImageFolder, default_loader
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
 from fairseq.data.cifar_dataset import CifarDataset
-
+from mcloader import ClassificationDataset
 
 @register_task('classification')
 class ClassificationTask(FairseqTask):
@@ -119,7 +119,7 @@ class ClassificationTask(FairseqTask):
         # Dataset parameters
         parser.add_argument('--data', default='./data/', type=str,
                             help='dataset path')
-        parser.add_argument('--data-set', default='CIFAR10', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19'],
+        parser.add_argument('--data-set', default='CIFAR10', choices=['CIFAR10', 'CIFAR100', 'IMNET', 'INAT', 'INAT19'],
                             type=str, help='Image Net dataset path')
         parser.add_argument('--inat-category', default='name',
                             choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
@@ -285,9 +285,13 @@ class ClassificationTask(FairseqTask):
             dataset = datasets.CIFAR100(args.data, train=is_train, transform=transform, download=True)
             nb_classes = 100
         elif args.data_set == 'IMNET':
-            root = os.path.join(args.data, 'train' if is_train else 'val')
-            dataset = datasets.ImageFolder(root, transform=transform)
+            # root = os.path.join(args.data, 'train' if is_train else 'val')
+            # dataset = datasets.ImageFolder(root, transform=transform)
             nb_classes = 1000
+            dataset = ClassificationDataset(
+                'train' if is_train else 'val',
+                pipeline=transform
+            )
         elif args.data_set == 'EVO_IMNET':
             root = os.path.join(args.data, folder_name)
             dataset = datasets.ImageFolder(root, transform=transform)

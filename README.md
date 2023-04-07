@@ -1,6 +1,7 @@
-# Installation
+This repo is the official implementations of "Neural Architecture Search on Efficient Transformers and Beyond".
+## Installation
 
-## Install pytorch
+### Install pytorch
 
 NVIDIA Turing architecture or lower GPUs (TITAN V, 2080, etc.):
 ```
@@ -20,7 +21,7 @@ conda activate ranknas
 conda install pytorch==1.7.1 cudatoolkit=11.0 -c pytorch
 ```
 
-## Install other dependent libraries
+### Install other dependent libraries
 
 ```
 pip install -e .
@@ -28,7 +29,7 @@ pip install -e .
 cd torchprofile && pip install -e . && cd ..
 ```
 
-# Data pre-process
+## Data pre-process
 ```
 bash configs/iwslt14.de-en/preprocess.sh
 
@@ -37,7 +38,7 @@ bash configs/wmt14.en-de/preprocess.sh
 bash configs/wikitext-103/preprocess.sh
 ```
 
-# 1. Train the supernet
+## 1. Train the supernet
 
 IWSLT14.De-En:
 ```
@@ -60,8 +61,8 @@ sh train_supernet_cifar10.sh
 ```
 After training the super-transformers, check `checkpoints`.
 
-# 2.1 Collect architectures and their performance
-## 2.1.1 Collect the loss data with the supernet
+## 2.1 Collect architectures and their performance
+### 2.1.1 Collect the loss data with the supernet
 
 IWSLT14.De-En:
 ```
@@ -84,7 +85,7 @@ sh acc_dataset.sh
 ```
 After collecting the data, check `loss_dataset`.
 
-## 2.1.2 Collect the latency data
+### 2.1.2 Collect the latency data
 
 IWSLT14.De-En:
 ```
@@ -107,8 +108,8 @@ sh collect_latency.sh
 ```
 After collecting the data, check `latency_dataset`.
 
-# 2.2 Train the performance ranker
-## 2.2.1 Train the loss ranker
+## 2.2 Train the performance ranker
+### 2.2.1 Train the loss ranker
 
 IWSLT14.De-En:
 ```
@@ -132,7 +133,7 @@ sh train_acc_ranker.sh
 
 After training the loss ranker, check `checkpoints`.
 
-## 2.2.2 Train the latency ranker
+### 2.2.2 Train the latency ranker
 
 IWSLT14.De-En:
 ```
@@ -158,7 +159,7 @@ After training the latency ranker, check `checkpoints`.
 
 **Note that training the ranker will print the selected feature indices, which are required for the following searching stage.**
 
-# 3. Search with the performance ranker
+## 3. Search with the performance ranker
 
 WikiText-103:
 ```
@@ -194,7 +195,7 @@ After searching, check `configs`.
 
 **Note that it will print the search results (stored in a yaml file).**
 
-# 4.1 Train a discovered sub-transformer from scratch
+## 4.1 Train a discovered sub-transformer from scratch
 ```
 python train.py \
  --sub-configs=configs/wikitext-103/subtransformer/config.yml \
@@ -208,7 +209,7 @@ sh train_subnet_cifar10.sh
 
 **Replace PATH_TO_YOUR_SEARCH_RESULT to the result of Step 3**
 
-# 4.2 Evaluate the trained sub-transformer
+## 4.2 Evaluate the trained sub-transformer
 
 Machine Translation:
 ```
@@ -225,4 +226,13 @@ Language Modeling:
 PATH_TO_MODEL=checkpoints/wikitext-103/subtransformer/checkpoint_best.pt
 GPU_ID=0
 bash configs/wikitext-103/test.sh PATH_TO_MODEL GPU_ID
+```
+If you use this code, please cite:
+```
+@article{liu2022neural,
+  title={Neural architecture search on efficient transformers and beyond},
+  author={Liu, Zexiang and Li, Dong and Lu, Kaiyue and Qin, Zhen and Sun, Weixuan and Xu, Jiacheng and Zhong, Yiran},
+  journal={arXiv preprint arXiv:2207.13955},
+  year={2022}
+}
 ```

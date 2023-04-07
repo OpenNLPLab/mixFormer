@@ -227,6 +227,7 @@ PATH_TO_MODEL=checkpoints/wikitext-103/subtransformer/checkpoint_best.pt
 GPU_ID=0
 bash configs/wikitext-103/test.sh PATH_TO_MODEL GPU_ID
 ```
+## Citation
 If you use this code, please cite:
 ```
 @article{liu2022neural,
